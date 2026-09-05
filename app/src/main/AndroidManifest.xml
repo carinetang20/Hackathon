@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -11,6 +13,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Hackathon">
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyDz-avvXdHWe6PVGXQdMDLI_HRarnY6raI" />
 
         <!-- Main screen -->
         <activity
@@ -31,10 +37,15 @@
         <activity
             android:name=".MyReportsActivity"/>
 
-<!--        Profile Screen -->
+        <!-- Profile Screen -->
         <activity android:name=".ProfileActivity" />
-<!--        Notifications Activity-->
+        <!-- Notifications Activity -->
         <activity android:name=".NotificationsActivity" />
+
+        <!-- Map screen -->
+        <activity
+            android:name=".MapActivity"
+            android:exported="false" />
 
     </application>
 
