@@ -1,11 +1,12 @@
 package com.example.hackathon;
 
 import android.os.Bundle;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.example.hackathon.utils.TrustCalculator;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.button.MaterialButton;
 
 import com.example.hackathon.models.AccessibilityReport;
 
@@ -18,8 +19,8 @@ public class ReportDetailActivity extends AppCompatActivity {
     private TextView disputeText;
     private TextView trustText;
 
-    private Button confirmButton;
-    private Button disputeButton;
+    private MaterialButton confirmButton;
+    private MaterialButton disputeButton;
 
     private AccessibilityReport report;
 
