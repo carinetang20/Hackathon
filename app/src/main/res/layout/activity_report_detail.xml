@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="REPORT DETAILS"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/locationText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Campus Library"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/issueText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ramp Blocked"
+        android:textSize="18sp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/descriptionText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Construction is blocking the wheelchair ramp."
+        android:textSize="16sp"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/confirmationText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Confirmed: 0"
+        android:textSize="17sp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/disputeText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Disputed: 0"
+        android:textSize="17sp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/trustText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Trust Level: LOW"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="30dp" />
+
+    <Button
+        android:id="@+id/confirmButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="CONFIRM"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/disputeButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="DISPUTE" />
+
+</LinearLayout>

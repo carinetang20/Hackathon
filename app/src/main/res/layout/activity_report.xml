@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="REPORT AN ACCESSIBILITY ISSUE"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <EditText
+        android:id="@+id/locationInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Location"
+        android:inputType="text"
+        android:layout_marginBottom="16dp" />
+
+    <Spinner
+        android:id="@+id/issueSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp" />
+
+    <EditText
+        android:id="@+id/descriptionInput"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:hint="Describe the accessibility issue"
+        android:gravity="top"
+        android:inputType="textMultiLine"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/submitButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="SUBMIT REPORT" />
+
+</LinearLayout>

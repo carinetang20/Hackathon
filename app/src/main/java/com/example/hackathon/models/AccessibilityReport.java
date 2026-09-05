@@ -1,4 +1,5 @@
-package models;
+package com.example.hackathon.models;
+
 public class AccessibilityReport {
 
     private String id;
@@ -18,23 +19,30 @@ public class AccessibilityReport {
             String description,
             long timestamp
     ) {
-
         this.id = id;
         this.locationName = locationName;
         this.issueType = issueType;
         this.description = description;
         this.timestamp = timestamp;
 
-        this.confirmations = 0;
-        this.disputes = 0;
+        confirmations = 0;
+        disputes = 0;
     }
 
-    public void confirm() {
-        confirmations++;
+    public String getLocationName() {
+        return locationName;
     }
 
-    public void dispute() {
-        disputes++;
+    public String getIssueType() {
+        return issueType;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 
     public int getConfirmations() {
@@ -43,5 +51,13 @@ public class AccessibilityReport {
 
     public int getDisputes() {
         return disputes;
+    }
+
+    public void confirm() {
+        confirmations++;
+    }
+
+    public void dispute() {
+        disputes++;
     }
 }
