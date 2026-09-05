@@ -1,41 +1,42 @@
 package com.example.hackathon;
 
+import com.example.hackathon.models.AccessibilityReport;
+
 import java.util.List;
 
 /**
- * Matches known obstacles against candidate routes and scores each route
- * based on which obstacles fall near its path. This is the layer that
- * compensates for the Directions API having no wheelchair-aware walking
- * mode: we take Google's plain walking routes and evaluate them ourselves.
+ * Matches community obstacle reports against candidate routes and scores
+ * each route based on which reports fall near its path. This replaces the
+ * old Firestore/Obstacle-based scoring — it now reads directly from
+ * ObstacleReportStore's live report data.
  */
 public class RouteAccessibilityAnalyzer {
 
-    // How close (in meters) an obstacle must be to a route's path to count
+    // How close (in meters) a report must be to a route's path to count
     // as "on" that route. Tune based on GPS/report accuracy during testing.
     private static final double MATCH_RADIUS_METERS = 25.0;
 
     private static final double EARTH_RADIUS_METERS = 6371000.0;
 
     /**
-     * Scores every route by checking each obstacle against every segment of
+     * Scores every route by checking each report against every segment of
      * the route's polyline. Mutates the RouteOption objects in place
-     * (attaches matched obstacles + final score) and returns the same list,
+     * (attaches matched reports + final score) and returns the same list,
      * sorted best-first.
      */
-    public List<com.example.hackathon.RouteOption> analyze(List<RouteOption> routes, List<Obstacle> obstacles) {
+    public List<RouteOption> analyze(List<RouteOption> routes, List<AccessibilityReport> reports) {
         for (RouteOption route : routes) {
             int score = 100;
-            for (Obstacle obstacle : obstacles) {
-                if (isObstacleOnRoute(obstacle, route)) {
-                    route.addObstacle(obstacle);
-                    score -= obstacle.penaltyPoints();
+            for (AccessibilityReport report : reports) {
+                if (isReportOnRoute(report, route)) {
+                    route.addReport(report);
+                    score -= report.penaltyPoints();
                 }
             }
             route.setAccessibilityScore(Math.max(score, 0));
         }
 
         routes.sort((a, b) -> {
-            // Routes with a hard blocker always rank below routes without one.
             if (a.hasBlocker() != b.hasBlocker()) {
                 return a.hasBlocker() ? 1 : -1;
             }
@@ -45,11 +46,15 @@ public class RouteAccessibilityAnalyzer {
         return routes;
     }
 
-    private boolean isObstacleOnRoute(Obstacle obstacle, RouteOption route) {
+    private boolean isReportOnRoute(AccessibilityReport report, RouteOption route) {
+        // Reports with no real coordinates (legacy data) can't be matched.
+        if (report.getLat() == 0 && report.getLng() == 0) {
+            return false;
+        }
         List<double[]> points = route.getPoints();
         for (int i = 0; i < points.size() - 1; i++) {
             double dist = distanceToSegmentMeters(
-                    obstacle.getLat(), obstacle.getLng(),
+                    report.getLat(), report.getLng(),
                     points.get(i)[0], points.get(i)[1],
                     points.get(i + 1)[0], points.get(i + 1)[1]);
             if (dist <= MATCH_RADIUS_METERS) {
@@ -67,7 +72,6 @@ public class RouteAccessibilityAnalyzer {
     private double distanceToSegmentMeters(double pLat, double pLng,
                                            double aLat, double aLng,
                                            double bLat, double bLng) {
-        // Project onto the segment using simple planar approximation.
         double abLat = bLat - aLat;
         double abLng = bLng - aLng;
         double apLat = pLat - aLat;

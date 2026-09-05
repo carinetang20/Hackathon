@@ -78,18 +78,19 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private String selectedReportId;
 
-
+    // Coordinates of whatever is currently shown in the bottom sheet, so
+    // "Report obstruction" can attach a real location to the new report.
+    private Double selectedLat;
+    private Double selectedLng;
 
     // --- Route-finding additions ---
     private DirectionsApiClient directionsApiClient;
-    private FirestoreAccessibilityRepository repository;
     private final RouteAccessibilityAnalyzer analyzer = new RouteAccessibilityAnalyzer();
     private final ExecutorService geocodeExecutor = Executors.newSingleThreadExecutor();
 
     private Marker selectedLocationMarker;
 
     // Set once the user taps "use my location" for the ROUTE origin specifically.
-    // Kept separate from the general map-centering behavior of myLocationButton.
     private double[] routeOriginLocation;
     private boolean pendingRouteOriginFetch = false;
 
@@ -121,7 +122,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         myLocationButton = findViewById(R.id.myLocationButton);
 
         directionsApiClient = new DirectionsApiClient(getGoogleMapsApiKey());
-        repository = new FirestoreAccessibilityRepository();
+
+        // Keep the report list fresh as Firestore syncs, since obstacle pins
+        // and route scoring both depend on it.
+        ObstacleReportStore.getInstance(this).addListener(() -> {
+            if (map != null) {
+                showCampusAndObstacles();
+            }
+        });
 
         seedCampusPlaces();
 
@@ -133,8 +141,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         });
 
-        reportObstacleButton.setOnClickListener(v ->
-                startActivity(new Intent(this, ReportActivity.class)));
+        reportObstacleButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ReportActivity.class);
+            if (selectedLat != null && selectedLng != null) {
+                intent.putExtra(ReportActivity.EXTRA_LAT, selectedLat);
+                intent.putExtra(ReportActivity.EXTRA_LNG, selectedLng);
+            }
+            startActivity(intent);
+        });
 
         viewReportsButton.setOnClickListener(v -> {
             if (selectedReportId != null) {
@@ -205,6 +219,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         map.setOnMapClickListener(latLng -> {
             selectedReportId = null;
+            selectedLat = latLng.latitude;
+            selectedLng = latLng.longitude;
 
             if (selectedLocationMarker != null) {
                 selectedLocationMarker.remove();
@@ -223,6 +239,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         map.setOnMarkerClickListener(marker -> {
             String reportId = markerReportIds.get(marker);
             selectedReportId = reportId;
+            selectedLat = marker.getPosition().latitude;
+            selectedLng = marker.getPosition().longitude;
+
             if (reportId != null) {
                 AccessibilityReport report = ObstacleReportStore.getInstance(this).getById(reportId);
                 if (report != null) {
@@ -251,6 +270,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         showCampusAndObstacles();
         map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
 
+        selectedLat = CAMPUS_CENTER.latitude;
+        selectedLng = CAMPUS_CENTER.longitude;
         showSheet(
                 "Multimedia University — MMU Cyberjaya",
                 "Live campus map · red pins are community obstacle reports"
@@ -280,14 +301,23 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         List<AccessibilityReport> reports =
                 ObstacleReportStore.getInstance(this).getActiveCommunityReports();
 
-        int index = 0;
+        int fallbackIndex = 0;
         for (AccessibilityReport report : reports) {
-            double latOffset = ((index % 3) - 1) * 0.0009;
-            double lngOffset = ((index / 3) % 3 - 1) * 0.0009;
-            LatLng position = new LatLng(
-                    CAMPUS_CENTER.latitude + latOffset,
-                    CAMPUS_CENTER.longitude + lngOffset
-            );
+            LatLng position;
+            if (report.getLat() != 0 || report.getLng() != 0) {
+                // Real coordinates captured at report time.
+                position = new LatLng(report.getLat(), report.getLng());
+            } else {
+                // Legacy report with no coordinates — scatter near campus
+                // center so it's still visible rather than dropped silently.
+                double latOffset = ((fallbackIndex % 3) - 1) * 0.0009;
+                double lngOffset = ((fallbackIndex / 3) % 3 - 1) * 0.0009;
+                position = new LatLng(
+                        CAMPUS_CENTER.latitude + latOffset,
+                        CAMPUS_CENTER.longitude + lngOffset
+                );
+                fallbackIndex++;
+            }
 
             float hue = AccessibilityReport.STATUS_CONFIRMED.equals(report.getStatus())
                     ? BitmapDescriptorFactory.HUE_ORANGE
@@ -297,12 +327,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     .position(position)
                     .title(report.getIssueType())
                     .snippet(report.getLocationName() + " · " + report.getStatus())
-                    .icon(BitmapDescriptorFactory.defaultMarker(hue)));
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
 
             if (marker != null) {
                 markerReportIds.put(marker, report.getId());
             }
-            index++;
         }
     }
 
@@ -337,6 +366,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     || place.category.toLowerCase(Locale.US).contains(q)) {
                 map.animateCamera(CameraUpdateFactory.newLatLngZoom(place.position, 17f));
                 selectedReportId = null;
+                selectedLat = place.position.latitude;
+                selectedLng = place.position.longitude;
                 showSheet(place.name, place.category + " · MMU Cyberjaya");
                 return;
             }
@@ -348,6 +379,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             if (report.getLocationName().toLowerCase(Locale.US).contains(q)
                     || report.getIssueType().toLowerCase(Locale.US).contains(q)) {
                 selectedReportId = report.getId();
+                selectedLat = report.getLat();
+                selectedLng = report.getLng();
                 showSheet(
                         report.getIssueType(),
                         report.getLocationName() + " · " + report.getStatus()
@@ -400,6 +433,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     if (location != null && map != null) {
                         LatLng me = new LatLng(location.getLatitude(), location.getLongitude());
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(me, 17f));
+                        selectedLat = me.latitude;
+                        selectedLng = me.longitude;
                         showSheet("Your location", "Centered on your current position");
                     } else if (map != null) {
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
@@ -430,8 +465,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     == PackageManager.PERMISSION_GRANTED) {
                 map.setMyLocationEnabled(true);
             }
-            // If the user tapped "use my location" for the route origin before
-            // permission was granted, fetch it now that we have access.
             if (pendingRouteOriginFetch) {
                 pendingRouteOriginFetch = false;
                 fetchRouteOriginLocation();
@@ -453,12 +486,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     // ================== Route-finding additions ==================
 
-    /**
-     * Swaps the top search bar for the two-field route panel, called when
-     * "Directions" is tapped in the bottom sheet. Prefills the destination
-     * with whatever place/report is currently shown in the sheet, and tries
-     * to auto-fill the origin from GPS if permission is already granted.
-     */
     private void showRoutePanel() {
         String prefillDestination = sheetTitle.getText() != null ? sheetTitle.getText().toString() : "";
         if (!TextUtils.isEmpty(prefillDestination)) {
@@ -478,6 +505,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private void hideSheet() {
         locationSheet.setVisibility(View.GONE);
     }
+
     private void showSearchPanel() {
         routePanel.setVisibility(View.GONE);
         searchPanel.setVisibility(View.VISIBLE);
@@ -591,6 +619,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         });
     }
 
+    /**
+     * Scores candidate routes using live community reports from
+     * ObstacleReportStore (Firestore-backed) instead of the old, separate
+     * Firestore obstacle collection — so a reported obstacle actually
+     * affects the routes people are shown.
+     */
     private void planRoute(double originLat, double originLng, double destLat, double destLng) {
         Toast.makeText(this, "Finding accessible route...", Toast.LENGTH_SHORT).show();
 
@@ -598,21 +632,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 new DirectionsApiClient.RoutesCallback() {
                     @Override
                     public void onSuccess(List<RouteOption> routes) {
-                        double[] bounds = computeBounds(routes, originLat, originLng, destLat, destLng);
-
-                        repository.getObstaclesInBounds(bounds[0], bounds[1], bounds[2], bounds[3],
-                                new FirestoreAccessibilityRepository.ObstaclesCallback() {
-                                    @Override
-                                    public void onSuccess(List<Obstacle> obstacles) {
-                                        List<RouteOption> ranked = analyzer.analyze(routes, obstacles);
-                                        displayRoute(ranked.get(0), originLat, originLng, destLat, destLng);
-                                    }
-
-                                    @Override
-                                    public void onError(Exception e) {
-                                        displayRoute(routes.get(0), originLat, originLng, destLat, destLng);
-                                    }
-                                });
+                        List<AccessibilityReport> reports =
+                                ObstacleReportStore.getInstance(MapActivity.this).getActiveCommunityReports();
+                        List<RouteOption> ranked = analyzer.analyze(routes, reports);
+                        displayRoute(ranked.get(0), originLat, originLng, destLat, destLng);
                     }
 
                     @Override
@@ -621,27 +644,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                                 "Could not find a route: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
-    }
-
-    private double[] computeBounds(List<RouteOption> routes,
-                                   double originLat, double originLng,
-                                   double destLat, double destLng) {
-        double minLat = Math.min(originLat, destLat);
-        double maxLat = Math.max(originLat, destLat);
-        double minLng = Math.min(originLng, destLng);
-        double maxLng = Math.max(originLng, destLng);
-
-        for (RouteOption route : routes) {
-            for (double[] point : route.getPoints()) {
-                minLat = Math.min(minLat, point[0]);
-                maxLat = Math.max(maxLat, point[0]);
-                minLng = Math.min(minLng, point[1]);
-                maxLng = Math.max(maxLng, point[1]);
-            }
-        }
-
-        double margin = 0.01;
-        return new double[]{minLat - margin, maxLat + margin, minLng - margin, maxLng + margin};
     }
 
     /**
@@ -680,17 +682,22 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 .title("Destination")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-        for (Obstacle obstacle : route.getObstaclesOnRoute()) {
-            map.addMarker(new MarkerOptions()
-                    .position(new LatLng(obstacle.getLat(), obstacle.getLng()))
-                    .title(obstacle.getType())
-                    .snippet(obstacle.getSeverity())
+        for (AccessibilityReport report : route.getReportsOnRoute()) {
+            Marker marker = map.addMarker(new MarkerOptions()
+                    .position(new LatLng(report.getLat(), report.getLng()))
+                    .title(report.getIssueType())
+                    .snippet(report.getStatus())
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
+            if (marker != null) {
+                markerReportIds.put(marker, report.getId());
+            }
         }
 
         map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120));
 
         selectedReportId = null;
+        selectedLat = destLat;
+        selectedLng = destLng;
         String verdict = route.getAccessibilityScore() >= 60
                 ? "Likely accessible (score: " + route.getAccessibilityScore() + "/100)"
                 : "May be difficult for wheelchair users (score: " + route.getAccessibilityScore() + "/100)";
