@@ -1,15 +1,13 @@
 package com.example.hackathon;
 
-import static androidx.core.content.ContextCompat.startActivity;
-
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Toast;
-import android.widget.Button;
+import android.view.View;
+import android.widget.ImageView;
 
-import androidx.activity.EdgeToEdge;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.button.MaterialButton;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -21,8 +19,16 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Button mapButton;
-    private Button reportButton;
+    private MaterialButton reportButton;
+
+    private View navHome, navReport, navProfile;
+    private View bubbleHome, bubbleReport, bubbleProfile;
+    private ImageView iconHome, iconReport, iconProfile;
+
+    private ImageView mapPreviewImage;
+
+    private static final int COLOR_ACTIVE = 0xFF2A2A2A;
+    private static final int COLOR_INACTIVE = 0xFFFFFFFF;
 
     FirebaseFirestore firestore;
 
@@ -32,17 +38,35 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        mapButton = findViewById(R.id.mapButton);
-        reportButton = findViewById(R.id.reportButton);
+        navHome = findViewById(R.id.navHome);
+        navReport = findViewById(R.id.navReport);
+        navProfile = findViewById(R.id.navProfile);
 
-        mapButton.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, MapActivity.class);
-            startActivity(intent);
+        bubbleHome = findViewById(R.id.bubbleHome);
+        bubbleReport = findViewById(R.id.bubbleReport);
+        bubbleProfile = findViewById(R.id.bubbleProfile);
+
+        iconHome = findViewById(R.id.iconHome);
+        iconReport = findViewById(R.id.iconReport);
+        iconProfile = findViewById(R.id.iconProfile);
+
+        mapPreviewImage = findViewById(R.id.mapPreviewImage);
+
+        navHome.setOnClickListener(v -> {
+            setActiveTab(bubbleHome, iconHome);
         });
 
-        reportButton.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, ReportActivity.class);
-            startActivity(intent);
+        navReport.setOnClickListener(v -> {
+            setActiveTab(bubbleReport, iconReport);
+            startActivity(new Intent(MainActivity.this, ReportActivity.class));
+        });
+
+        navProfile.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, ProfileActivity.class));
+        });
+
+        mapPreviewImage.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, MapActivity.class));
         });
 
         //Test firestore connection
@@ -66,5 +90,18 @@ public class MainActivity extends AppCompatActivity {
 //            }
 //        });
 
+    }
+
+    private void setActiveTab(View activeBubble, ImageView activeIcon) {
+        bubbleHome.setVisibility(View.INVISIBLE);
+        bubbleReport.setVisibility(View.INVISIBLE);
+        bubbleProfile.setVisibility(View.INVISIBLE);
+
+        iconHome.setColorFilter(COLOR_INACTIVE);
+        iconReport.setColorFilter(COLOR_INACTIVE);
+        iconProfile.setColorFilter(COLOR_INACTIVE);
+
+        activeBubble.setVisibility(View.VISIBLE);
+        activeIcon.setColorFilter(COLOR_ACTIVE);
     }
 }

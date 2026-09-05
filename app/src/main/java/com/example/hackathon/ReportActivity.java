@@ -1,21 +1,23 @@
 package com.example.hackathon;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Spinner;
+import android.widget.AutoCompleteTextView;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+
 public class ReportActivity extends AppCompatActivity {
 
-    private EditText locationInput;
-    private EditText descriptionInput;
-    private Spinner issueSpinner;
-    private Button submitButton;
+    private TextInputEditText locationInput;
+    private TextInputEditText descriptionInput;
+    private AutoCompleteTextView issueSpinner;
+    private MaterialButton submitButton;
+    private ImageButton backButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,6 +29,7 @@ public class ReportActivity extends AppCompatActivity {
         descriptionInput = findViewById(R.id.descriptionInput);
         issueSpinner = findViewById(R.id.issueSpinner);
         submitButton = findViewById(R.id.submitButton);
+        backButton = findViewById(R.id.backButton);
 
         String[] issueTypes = {
                 "Illegal Parking",
@@ -42,23 +45,25 @@ public class ReportActivity extends AppCompatActivity {
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
-                android.R.layout.simple_spinner_item,
+                android.R.layout.simple_dropdown_item_1line,
                 issueTypes
-        );
-
-        adapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
         );
 
         issueSpinner.setAdapter(adapter);
 
+        // BACK button
+        backButton.setOnClickListener(v -> {
+            finish();
+        });
+
+        // SUBMIT button
         submitButton.setOnClickListener(v -> {
 
             String location = locationInput.getText().toString();
             String description = descriptionInput.getText().toString();
-            String issueType = issueSpinner.getSelectedItem().toString();
+            String issueType = issueSpinner.getText().toString();
 
-            if (location.isEmpty() || description.isEmpty()) {
+            if (location.isEmpty() || description.isEmpty() || issueType.isEmpty()) {
 
                 Toast.makeText(
                         ReportActivity.this,
@@ -75,13 +80,7 @@ public class ReportActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT
             ).show();
 
-            // Go back to MainActivity
-            Intent intent = new Intent(
-                    ReportActivity.this,
-                    MainActivity.class
-            );
-
-            startActivity(intent);
+            // Return to MainActivity
             finish();
         });
     }

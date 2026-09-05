@@ -31,6 +31,10 @@
         <activity
             android:name=".ReportActivity"
             android:exported="false" />
+<!--        Profile Screen -->
+        <activity android:name=".ProfileActivity" />
+<!--        Notifications Activity-->
+        <activity android:name=".NotificationsActivity" />
 
     </application>
 

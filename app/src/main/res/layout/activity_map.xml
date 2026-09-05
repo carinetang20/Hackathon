@@ -20,7 +20,7 @@
             android:id="@+id/searchInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="🔍 Search location"
+            android:hint="Search location"
             android:background="@android:drawable/editbox_background"
             android:padding="12dp" />
 
