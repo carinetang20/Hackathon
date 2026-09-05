@@ -1,5 +1,6 @@
 package com.example.hackathon;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,9 +10,10 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.hackathon.models.MyReport;
+import com.example.hackathon.models.AccessibilityReport;
+import com.example.hackathon.utils.ObstacleReportStore;
+import com.example.hackathon.utils.TrustCalculator;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class MyReportsActivity extends AppCompatActivity {
@@ -19,8 +21,10 @@ public class MyReportsActivity extends AppCompatActivity {
     private ImageButton backButton;
     private LinearLayout reportContainer;
     private LinearLayout emptyState;
+    private TextView titleText;
+    private TextView subtitleText;
 
-    private List<MyReport> reports = new ArrayList<>();
+    private ObstacleReportStore store;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,47 +32,35 @@ public class MyReportsActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_my_reports);
 
+        store = ObstacleReportStore.getInstance(this);
+
         backButton = findViewById(R.id.backButton);
         reportContainer = findViewById(R.id.reportContainer);
         emptyState = findViewById(R.id.emptyState);
+        titleText = findViewById(R.id.titleText);
+        subtitleText = findViewById(R.id.subtitleText);
+
+        if (titleText != null) {
+            titleText.setText("Community reports");
+        }
+        if (subtitleText != null) {
+            subtitleText.setVisibility(View.VISIBLE);
+            subtitleText.setText("Tap a report to mark Still there or Not there");
+        }
 
         backButton.setOnClickListener(v -> finish());
-
-        loadSampleReports();
-        renderReports();
     }
 
-    private void loadSampleReports() {
-        reports.add(new MyReport(
-                "Campus Library",
-                "Ramp Blocked",
-                "Construction is blocking the wheelchair ramp.",
-                "Pending",
-                3,
-                0
-        ));
-
-        reports.add(new MyReport(
-                "Persiaran Newron",
-                "Broken Crossing",
-                "The pedestrian crossing signal is not working.",
-                "Confirmed",
-                8,
-                1
-        ));
-
-        reports.add(new MyReport(
-                "Institute for Postgraduate Studies",
-                "Blocked Tactile Path",
-                "Tactile paving is covered by parked bicycles.",
-                "Confirmed",
-                5,
-                0
-        ));
+    @Override
+    protected void onResume() {
+        super.onResume();
+        renderReports();
     }
 
     private void renderReports() {
         reportContainer.removeAllViews();
+
+        List<AccessibilityReport> reports = store.getAllReports();
 
         if (reports.isEmpty()) {
             emptyState.setVisibility(View.VISIBLE);
@@ -79,7 +71,7 @@ public class MyReportsActivity extends AppCompatActivity {
 
         LayoutInflater inflater = LayoutInflater.from(this);
 
-        for (MyReport report : reports) {
+        for (AccessibilityReport report : reports) {
             View itemView = inflater.inflate(R.layout.item_my_report, reportContainer, false);
 
             TextView locationView = itemView.findViewById(R.id.reportLocation);
@@ -89,26 +81,36 @@ public class MyReportsActivity extends AppCompatActivity {
             TextView confirmedView = itemView.findViewById(R.id.reportConfirmed);
             TextView disputedView = itemView.findViewById(R.id.reportDisputed);
 
-            locationView.setText(report.getLocation());
-            statusView.setText(report.getStatus());
+            locationView.setText(report.getLocationName());
+            statusView.setText(TrustCalculator.statusLabel(report.getStatus()));
             issueTypeView.setText(report.getIssueType());
             descriptionView.setText(report.getDescription());
-            confirmedView.setText("✓ " + report.getConfirmations() + " confirmed");
-            disputedView.setText("✕ " + report.getDisputes() + " disputed");
+            confirmedView.setText("✓ " + report.getStillThereCount() + " still there");
+            disputedView.setText("✕ " + report.getNotThereCount() + " not there");
 
-            // Color the status pill based on status text
-            if (report.getStatus().equalsIgnoreCase("Confirmed")) {
-                statusView.setBackgroundColor(0xFFD1FAE5); // light green
-                statusView.setTextColor(0xFF059669);        // green
-            } else if (report.getStatus().equalsIgnoreCase("Disputed")) {
-                statusView.setBackgroundColor(0xFFFEE2E2); // light red
-                statusView.setTextColor(0xFFDC2626);        // red
-            } else {
-                statusView.setBackgroundColor(0xFFFEF3C7); // light amber
-                statusView.setTextColor(0xFFD97706);        // amber
-            }
+            applyStatusColors(statusView, report.getStatus());
+
+            itemView.setOnClickListener(v -> {
+                Intent intent = new Intent(MyReportsActivity.this, ReportDetailActivity.class);
+                intent.putExtra(ReportDetailActivity.EXTRA_REPORT_ID, report.getId());
+                startActivity(intent);
+            });
 
             reportContainer.addView(itemView);
+        }
+    }
+
+    private void applyStatusColors(TextView statusView, String status) {
+        if (AccessibilityReport.STATUS_CLEARED.equals(status)
+                || AccessibilityReport.STATUS_CONFIRMED.equals(status)) {
+            statusView.setBackgroundColor(0xFFD1FAE5);
+            statusView.setTextColor(0xFF059669);
+        } else if (AccessibilityReport.STATUS_UNCERTAIN.equals(status)) {
+            statusView.setBackgroundColor(0xFFFEE2E2);
+            statusView.setTextColor(0xFFDC2626);
+        } else {
+            statusView.setBackgroundColor(0xFFFEF3C7);
+            statusView.setTextColor(0xFFD97706);
         }
     }
 }

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Live camera preview for scanning the path ahead" />
+
+    <!-- Top bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="40dp"
+        android:paddingBottom="12dp"
+        android:background="#99000000">
+
+        <ImageButton
+            android:id="@+id/backButton"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/notification_icon_bg"
+            android:src="@drawable/ic_back"
+            android:padding="10dp"
+            android:contentDescription="Back"
+            app:tint="#1A1A1A" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/scan_assist_title"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="MMU campus pathway guidance"
+                android:textColor="#D1D5DB"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Guidance card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="@drawable/bottom_sheet_bg"
+        android:padding="20dp"
+        android:elevation="10dp">
+
+        <TextView
+            android:id="@+id/guidanceTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ready for campus pathway scan"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/guidanceText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/scan_assist_hint"
+            android:textColor="#CFCFCF"
+            android:textSize="14sp"
+            android:lineSpacingExtra="3dp"
+            android:layout_marginBottom="16dp"
+            android:minHeight="72dp" />
+
+        <TextView
+            android:id="@+id/detectedLabels"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#9CA3AF"
+            android:textSize="12sp"
+            android:layout_marginBottom="14dp"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/scanButton"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="@string/scan_button"
+            android:textAllCaps="false"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            app:cornerRadius="16dp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="#1A1A1A"
+            app:icon="@drawable/ic_camera"
+            app:iconTint="#1A1A1A"
+            app:iconGravity="textStart"
+            android:contentDescription="Scan surroundings and hear spoken directions" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/repeatButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Repeat audio"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            app:cornerRadius="14dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            app:strokeColor="#FFFFFF"
+            android:textColor="#FFFFFF"
+            android:visibility="gone"
+            android:contentDescription="Repeat the last spoken guidance" />
+    </LinearLayout>
+
+</FrameLayout>

@@ -6,11 +6,11 @@
     android:orientation="vertical"
     android:background="#F5F0E8">
 
-    <!-- Main content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -18,7 +18,6 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- Header -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -28,15 +27,16 @@
                 android:textColor="#1A1A1A"
                 android:gravity="center"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="24dp" />
+                android:layout_marginBottom="20dp" />
 
-            <!-- Avatar + name card -->
+            <!-- Identity card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
-                android:layout_marginBottom="16dp">
+                app:cardCornerRadius="20dp"
+                app:cardElevation="3dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:layout_marginBottom="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -45,35 +45,62 @@
                     android:gravity="center"
                     android:padding="24dp">
 
-                    <androidx.cardview.widget.CardView
-                        android:layout_width="88dp"
-                        android:layout_height="88dp"
-                        app:cardCornerRadius="44dp"
-                        app:cardElevation="0dp"
-                        android:layout_marginBottom="16dp">
+                    <FrameLayout
+                        android:layout_width="96dp"
+                        android:layout_height="96dp"
+                        android:layout_marginBottom="14dp">
 
-                        <ImageView
-                            android:id="@+id/avatarImage"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:background="#2A2A2A"
-                            android:padding="22dp"
-                            android:src="@drawable/ic_profile"
-                            app:tint="#FFFFFF"
-                            android:scaleType="fitCenter"
-                            android:contentDescription="Profile photo" />
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="96dp"
+                            android:layout_height="96dp"
+                            app:cardCornerRadius="48dp"
+                            app:cardElevation="0dp">
 
-                    </androidx.cardview.widget.CardView>
+                            <ImageView
+                                android:id="@+id/avatarImage"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="#1A1A1A"
+                                android:padding="24dp"
+                                android:src="@drawable/ic_profile"
+                                app:tint="#FFFFFF"
+                                android:scaleType="fitCenter"
+                                android:contentDescription="Profile photo" />
+                        </androidx.cardview.widget.CardView>
+
+                        <View
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="bottom|end"
+                            android:layout_marginEnd="4dp"
+                            android:layout_marginBottom="4dp"
+                            android:background="@drawable/online_status_dot" />
+                    </FrameLayout>
 
                     <TextView
                         android:id="@+id/nameText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Summer Lee"
-                        android:textSize="20sp"
+                        android:textSize="22sp"
                         android:textStyle="bold"
                         android:textColor="#1A1A1A"
                         android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/roleText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Community contributor"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#059669"
+                        android:background="#D1FAE5"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:layout_marginBottom="8dp" />
 
                     <TextView
                         android:id="@+id/emailText"
@@ -83,110 +110,180 @@
                         android:textSize="14sp"
                         android:textColor="#6B7280" />
 
+                    <TextView
+                        android:id="@+id/bioText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Helping visually impaired peers navigate campus safely by reporting obstacles."
+                        android:textSize="13sp"
+                        android:textColor="#6B7280"
+                        android:gravity="center"
+                        android:layout_marginTop="12dp"
+                        android:lineSpacingExtra="2dp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Stats card -->
+            <!-- Live impact stats -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
-                android:layout_marginBottom="16dp">
+                app:cardCornerRadius="20dp"
+                app:cardElevation="3dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:layout_marginBottom="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="20dp">
+                    android:orientation="vertical"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="8dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Your impact"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#6B7280"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp"
+                        android:layout_marginBottom="8dp" />
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:gravity="center">
+                        android:orientation="horizontal"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="12dp">
 
-                        <TextView
-                            android:id="@+id/reportsCountText"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:text="12"
-                            android:textSize="22sp"
-                            android:textStyle="bold"
-                            android:textColor="#1A1A1A" />
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp">
 
-                        <TextView
-                            android:layout_width="wrap_content"
+                            <TextView
+                                android:id="@+id/reportsCountText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textSize="24sp"
+                                android:textStyle="bold"
+                                android:textColor="#1A1A1A" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Reports"
+                                android:textSize="12sp"
+                                android:textColor="#6B7280" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#E5E0D5" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:text="Reports"
-                            android:textSize="13sp"
-                            android:textColor="#6B7280" />
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:id="@+id/confirmedCountText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textSize="24sp"
+                                android:textStyle="bold"
+                                android:textColor="#059669" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Still there"
+                                android:textSize="12sp"
+                                android:textColor="#6B7280" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#E5E0D5" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:id="@+id/clearedCountText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textSize="24sp"
+                                android:textStyle="bold"
+                                android:textColor="#DC2626" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Cleared"
+                                android:textSize="12sp"
+                                android:textColor="#6B7280" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#E5E0D5" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:id="@+id/trustScoreText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="—"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="#3B82F6" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Trust"
+                                android:textSize="12sp"
+                                android:textColor="#6B7280" />
+                        </LinearLayout>
                     </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:gravity="center">
-
-                        <TextView
-                            android:id="@+id/confirmedCountText"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="34"
-                            android:textSize="22sp"
-                            android:textStyle="bold"
-                            android:textColor="#059669" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Confirmed"
-                            android:textSize="13sp"
-                            android:textColor="#6B7280" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="match_parent"
-                        android:background="#E5E0D5" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:gravity="center">
-
-                        <TextView
-                            android:id="@+id/trustScoreText"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="HIGH"
-                            android:textSize="22sp"
-                            android:textStyle="bold"
-                            android:textColor="#3B82F6" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Trust Level"
-                            android:textSize="13sp"
-                            android:textColor="#6B7280" />
-                    </LinearLayout>
-
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Settings list card -->
+            <!-- Menu -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
-                android:layout_marginBottom="16dp">
+                app:cardCornerRadius="20dp"
+                app:cardElevation="3dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:layout_marginBottom="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -194,77 +291,74 @@
                     android:orientation="vertical">
 
                     <LinearLayout
-                        android:id="@+id/myReportsRow"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="18dp"
-                        android:background="?attr/selectableItemBackground">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="My Reports"
-                            android:textSize="16sp"
-                            android:textColor="#1A1A1A" />
-
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@android:drawable/ic_media_play"
-                            app:tint="#9CA3AF"
-                            android:contentDescription="Go" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#E5E0D5" />
-
-
-                    <LinearLayout
                         android:id="@+id/settingsRow"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:padding="18dp"
+                        android:padding="16dp"
                         android:background="?attr/selectableItemBackground">
 
-                        <TextView
+                        <FrameLayout
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:background="@drawable/profile_icon_chip_bg"
+                            android:layout_marginEnd="14dp">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_settings"
+                                app:tint="#1A1A1A"
+                                android:contentDescription="@null" />
+                        </FrameLayout>
+
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Settings"
-                            android:textSize="16sp"
-                            android:textColor="#1A1A1A" />
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Settings"
+                                android:textSize="16sp"
+                                android:textColor="#1A1A1A"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Preferences and accessibility"
+                                android:textSize="12sp"
+                                android:textColor="#6B7280" />
+                        </LinearLayout>
 
                         <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@android:drawable/ic_media_play"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_chevron_right"
                             app:tint="#9CA3AF"
                             android:contentDescription="Go" />
                     </LinearLayout>
-
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Log out button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/logoutButton"
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
-                android:text="Log Out"
+                android:text="Log out"
                 android:textAllCaps="false"
                 android:textSize="16sp"
                 android:textColor="#DC2626"
                 app:cornerRadius="27dp"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 app:strokeColor="#DC2626"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="12dp" />
 
         </LinearLayout>
     </ScrollView>
@@ -302,7 +396,7 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:layout_gravity="center"
-                android:src="@android:drawable/ic_menu_myplaces"
+                android:src="@drawable/ic_home"
                 app:tint="#FFFFFF"
                 android:contentDescription="Home" />
         </FrameLayout>
@@ -331,7 +425,7 @@
                 app:tint="#FFFFFF"
                 android:contentDescription="Report" />
         </FrameLayout>
-        <!-- My Reports -->
+
         <FrameLayout
             android:id="@+id/navMyReports"
             android:layout_width="0dp"
@@ -355,10 +449,7 @@
                 android:src="@android:drawable/ic_menu_agenda"
                 app:tint="#FFFFFF"
                 android:contentDescription="My Reports" />
-
         </FrameLayout>
-
-
 
         <FrameLayout
             android:id="@+id/navProfile"
@@ -384,7 +475,6 @@
                 app:tint="#2A2A2A"
                 android:contentDescription="Profile" />
         </FrameLayout>
-
     </LinearLayout>
 
 </LinearLayout>

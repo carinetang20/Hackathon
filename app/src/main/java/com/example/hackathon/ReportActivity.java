@@ -8,6 +8,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.hackathon.utils.ObstacleReportStore;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -31,56 +32,56 @@ public class ReportActivity extends AppCompatActivity {
         submitButton = findViewById(R.id.submitButton);
         backButton = findViewById(R.id.backButton);
 
-        String[] issueTypes = {
+        String[] obstacleTypes = {
                 "Illegal Parking",
                 "Pothole",
                 "Construction",
                 "Overgrown Vegetation",
-                "Broken Ramp",
+                "Blocked Ramp",
                 "Blocked Tactile Path",
                 "Broken Crossing",
                 "Open Drain",
+                "Temporary Barrier",
+                "Debris / Obstacle",
                 "Other"
         };
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_dropdown_item_1line,
-                issueTypes
+                obstacleTypes
         );
 
         issueSpinner.setAdapter(adapter);
 
-        // BACK button
-        backButton.setOnClickListener(v -> {
-            finish();
-        });
+        backButton.setOnClickListener(v -> finish());
 
-        // SUBMIT button
         submitButton.setOnClickListener(v -> {
-
-            String location = locationInput.getText().toString();
-            String description = descriptionInput.getText().toString();
-            String issueType = issueSpinner.getText().toString();
+            String location = locationInput.getText() != null
+                    ? locationInput.getText().toString().trim() : "";
+            String description = descriptionInput.getText() != null
+                    ? descriptionInput.getText().toString().trim() : "";
+            String issueType = issueSpinner.getText() != null
+                    ? issueSpinner.getText().toString().trim() : "";
 
             if (location.isEmpty() || description.isEmpty() || issueType.isEmpty()) {
-
                 Toast.makeText(
                         ReportActivity.this,
                         "Please fill in all fields",
                         Toast.LENGTH_SHORT
                 ).show();
-
                 return;
             }
 
+            ObstacleReportStore.getInstance(this)
+                    .addReport(location, issueType, description);
+
             Toast.makeText(
                     ReportActivity.this,
-                    "Report submitted!",
-                    Toast.LENGTH_SHORT
+                    "Obstacle reported — thank you for helping the community!",
+                    Toast.LENGTH_LONG
             ).show();
 
-            // Return to MainActivity
             finish();
         });
     }
