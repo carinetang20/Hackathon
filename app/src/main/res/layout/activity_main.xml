@@ -144,6 +144,31 @@
                 app:tint="#FFFFFF"
                 android:contentDescription="Report" />
         </FrameLayout>
+        <FrameLayout
+            android:id="@+id/navMyReports"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_weight="1"
+            android:layout_gravity="center">
+
+            <View
+                android:id="@+id/bubbleMyReports"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"
+                android:background="@drawable/nav_bubble"
+                android:visibility="invisible" />
+
+            <ImageView
+                android:id="@+id/iconMyReports"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_menu_agenda"
+                app:tint="#FFFFFF"
+                android:contentDescription="My Reports" />
+        </FrameLayout>
+
 
         <!-- Profile -->
         <FrameLayout

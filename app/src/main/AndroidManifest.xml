@@ -29,8 +29,8 @@
 
         <!-- Report screen -->
         <activity
-            android:name=".ReportActivity"
-            android:exported="false" />
+            android:name=".MyReportsActivity"/>
+
 <!--        Profile Screen -->
         <activity android:name=".ProfileActivity" />
 <!--        Notifications Activity-->

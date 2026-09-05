@@ -63,6 +63,8 @@ public class ProfileActivity extends AppCompatActivity {
             startActivity(new Intent(ProfileActivity.this, ReportActivity.class));
             finish();
         });
+        myReportsRow.setOnClickListener(v ->
+                startActivity(new Intent(ProfileActivity.this, MyReportsActivity.class)));
 
         navProfile.setOnClickListener(v -> {
             // already here, no-op
