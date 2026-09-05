@@ -22,12 +22,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Map screen -->
+        <!-- Report screen -->
         <activity
-            android:name=".MapActivity"
+            android:name=".ReportActivity"
             android:exported="false" />
 
-        <!-- Report screen -->
+        <!--  My Report screen -->
         <activity
             android:name=".MyReportsActivity"/>
 

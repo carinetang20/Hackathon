@@ -3,9 +3,21 @@ package com.example.hackathon;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 
+
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.button.MaterialButton;
+
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -15,14 +27,24 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView mapPreviewImage;
 
+    private ImageButton notificationButton;
+
     private static final int COLOR_ACTIVE = 0xFF2A2A2A;
     private static final int COLOR_INACTIVE = 0xFFFFFFFF;
+
+    FirebaseFirestore firestore;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
+        notificationButton = findViewById(R.id.notificationButton);
+
+        notificationButton.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, com.example.hackathon.NotificationsActivity.class));
+        });
 
         navHome = findViewById(R.id.navHome);
         navReport = findViewById(R.id.navReport);
@@ -61,6 +83,28 @@ public class MainActivity extends AppCompatActivity {
         mapPreviewImage.setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, MapActivity.class));
         });
+
+        //Test firestore connection
+//        firestore = FirebaseFirestore.getInstance();
+//
+//        Map<String, Object> user = new HashMap<>();
+//        user.put("first", "Ada");
+//        user.put("last", "Lovelace");
+//        user.put("born", 1815);
+//
+//        firestore.collection("users").add(user).addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
+//            @Override
+//            public void onSuccess(DocumentReference documentReference) {
+//                Toast.makeText(getApplicationContext(), "Success", Toast.LENGTH_LONG).show();
+//            }
+//        }).addOnFailureListener(new OnFailureListener() {
+//            @Override
+//            public void onFailure(@NonNull Exception e) {
+//                Toast.makeText(getApplicationContext(), "Failure", Toast.LENGTH_LONG).show();
+//
+//            }
+//        });
+
     }
 
     private void setActiveTab(View activeBubble, ImageView activeIcon) {

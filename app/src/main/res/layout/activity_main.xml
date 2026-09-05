@@ -13,6 +13,17 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:padding="24dp">
+        <ImageButton
+            android:id="@+id/notificationButton"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="end"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_popup_reminder"
+            android:contentDescription="Notifications"
+            android:padding="10dp"
+            android:layout_marginTop="30dp"
+            app:tint="#2A2A2A" />
 
         <!-- Greeting -->
         <TextView

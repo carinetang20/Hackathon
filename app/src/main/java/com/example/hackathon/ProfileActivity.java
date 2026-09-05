@@ -13,11 +13,11 @@ import com.google.android.material.button.MaterialButton;
 
 public class ProfileActivity extends AppCompatActivity {
 
-    private View navHome, navReport, navProfile;
-    private View bubbleHome, bubbleReport, bubbleProfile;
-    private ImageView iconHome, iconReport, iconProfile;
+    private View navHome, navReport, navMyReports, navProfile;
+    private View bubbleHome, bubbleReport, bubbleMyReports, bubbleProfile;
+    private ImageView iconHome, iconReport, iconMyReports, iconProfile;
 
-    private LinearLayout myReportsRow, notificationsRow, settingsRow;
+    private LinearLayout myReportsRow, settingsRow;
     private MaterialButton logoutButton;
 
     private static final int COLOR_ACTIVE = 0xFF2A2A2A;
@@ -30,22 +30,21 @@ public class ProfileActivity extends AppCompatActivity {
         setContentView(R.layout.activity_profile);
 
         navHome = findViewById(R.id.navHome);
-
         navReport = findViewById(R.id.navReport);
+        navMyReports = findViewById(R.id.navMyReports);
         navProfile = findViewById(R.id.navProfile);
 
         bubbleHome = findViewById(R.id.bubbleHome);
-
         bubbleReport = findViewById(R.id.bubbleReport);
+        bubbleMyReports = findViewById(R.id.bubbleMyReports);
         bubbleProfile = findViewById(R.id.bubbleProfile);
 
         iconHome = findViewById(R.id.iconHome);
-
         iconReport = findViewById(R.id.iconReport);
+        iconMyReports = findViewById(R.id.iconMyReports);
         iconProfile = findViewById(R.id.iconProfile);
 
         myReportsRow = findViewById(R.id.myReportsRow);
-        notificationsRow = findViewById(R.id.notificationsRow);
         settingsRow = findViewById(R.id.settingsRow);
         logoutButton = findViewById(R.id.logoutButton);
 
@@ -57,27 +56,26 @@ public class ProfileActivity extends AppCompatActivity {
             finish();
         });
 
-
-
         navReport.setOnClickListener(v -> {
             startActivity(new Intent(ProfileActivity.this, ReportActivity.class));
             finish();
         });
-        myReportsRow.setOnClickListener(v ->
-                startActivity(new Intent(ProfileActivity.this, MyReportsActivity.class)));
+
+        navMyReports.setOnClickListener(v -> {
+            startActivity(new Intent(ProfileActivity.this, MyReportsActivity.class));
+        });
 
         navProfile.setOnClickListener(v -> {
             // already here, no-op
         });
 
         myReportsRow.setOnClickListener(v ->
-                Toast.makeText(this, "My Reports coming soon", Toast.LENGTH_SHORT).show());
+                startActivity(new Intent(ProfileActivity.this, MyReportsActivity.class)));
 
-        notificationsRow.setOnClickListener(v ->
-                startActivity(new Intent(ProfileActivity.this, com.example.hackathon.NotificationsActivity.class)));
+
 
         settingsRow.setOnClickListener(v ->
-                Toast.makeText(this, "Settings coming soon", Toast.LENGTH_SHORT).show());
+                startActivity(new Intent(ProfileActivity.this, SettingsActivity.class)));
 
         logoutButton.setOnClickListener(v -> {
             Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
@@ -88,13 +86,13 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void setActiveTab(View activeBubble, ImageView activeIcon) {
         bubbleHome.setVisibility(View.INVISIBLE);
-
         bubbleReport.setVisibility(View.INVISIBLE);
+        bubbleMyReports.setVisibility(View.INVISIBLE);
         bubbleProfile.setVisibility(View.INVISIBLE);
 
         iconHome.setColorFilter(COLOR_INACTIVE);
-
         iconReport.setColorFilter(COLOR_INACTIVE);
+        iconMyReports.setColorFilter(COLOR_INACTIVE);
         iconProfile.setColorFilter(COLOR_INACTIVE);
 
         activeBubble.setVisibility(View.VISIBLE);
