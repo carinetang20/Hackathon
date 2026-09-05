@@ -342,31 +342,6 @@
         </FrameLayout>
 
         <FrameLayout
-            android:id="@+id/navMap"
-            android:layout_width="0dp"
-            android:layout_height="50dp"
-            android:layout_weight="1"
-            android:layout_gravity="center">
-
-            <View
-                android:id="@+id/bubbleMap"
-                android:layout_width="50dp"
-                android:layout_height="50dp"
-                android:layout_gravity="center"
-                android:background="@drawable/nav_bubble"
-                android:visibility="invisible" />
-
-            <ImageView
-                android:id="@+id/iconMap"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"
-                android:src="@android:drawable/ic_dialog_map"
-                app:tint="#FFFFFF"
-                android:contentDescription="Map" />
-        </FrameLayout>
-
-        <FrameLayout
             android:id="@+id/navReport"
             android:layout_width="0dp"
             android:layout_height="50dp"
