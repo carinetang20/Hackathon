@@ -1,27 +1,52 @@
 package com.example.hackathon.utils;
 
+import com.example.hackathon.models.AccessibilityReport;
+
 public class TrustCalculator {
 
-    public static String calculateTrust(
-            int confirmations,
-            int disputes) {
+    public static String calculateTrust(int stillThereCount, int notThereCount) {
+        if (AccessibilityReport.STATUS_CLEARED.equals(
+                statusFromVotes(stillThereCount, notThereCount))) {
+            return "CLEARED";
+        }
 
-        // HIGH trust
-        // At least 3 people agree
-        // and nobody disagrees
-        if (confirmations >= 3 && disputes == 0) {
+        if (stillThereCount >= 3 && notThereCount == 0) {
             return "HIGH";
         }
 
-        // MEDIUM trust
-        // More people agree than disagree
-        if (confirmations > disputes) {
+        if (stillThereCount > notThereCount) {
             return "MEDIUM";
         }
 
-        // LOW trust
-        // More people disagree
-        // or there are no confirmations
         return "LOW";
+    }
+
+    public static String statusFromVotes(int stillThereCount, int notThereCount) {
+        if (notThereCount >= 2 && notThereCount > stillThereCount) {
+            return AccessibilityReport.STATUS_CLEARED;
+        }
+        if (stillThereCount >= 2 && stillThereCount > notThereCount) {
+            return AccessibilityReport.STATUS_CONFIRMED;
+        }
+        if (stillThereCount > 0 && notThereCount > 0) {
+            return AccessibilityReport.STATUS_UNCERTAIN;
+        }
+        if (stillThereCount > 0) {
+            return AccessibilityReport.STATUS_CONFIRMED;
+        }
+        return AccessibilityReport.STATUS_ACTIVE;
+    }
+
+    public static String statusLabel(String status) {
+        if (AccessibilityReport.STATUS_CLEARED.equals(status)) {
+            return "Cleared";
+        }
+        if (AccessibilityReport.STATUS_CONFIRMED.equals(status)) {
+            return "Still there";
+        }
+        if (AccessibilityReport.STATUS_UNCERTAIN.equals(status)) {
+            return "Uncertain";
+        }
+        return "Active";
     }
 }

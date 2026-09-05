@@ -5,11 +5,17 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.hackathon.models.AccessibilityReport;
+import com.example.hackathon.utils.ObstacleReportStore;
+import com.example.hackathon.utils.TrustCalculator;
 import com.google.android.material.button.MaterialButton;
+
+import java.util.List;
 
 public class ProfileActivity extends AppCompatActivity {
 
@@ -17,8 +23,13 @@ public class ProfileActivity extends AppCompatActivity {
     private View bubbleHome, bubbleReport, bubbleMyReports, bubbleProfile;
     private ImageView iconHome, iconReport, iconMyReports, iconProfile;
 
-    private LinearLayout myReportsRow, settingsRow;
+    private LinearLayout settingsRow;
     private MaterialButton logoutButton;
+
+    private TextView reportsCountText;
+    private TextView confirmedCountText;
+    private TextView clearedCountText;
+    private TextView trustScoreText;
 
     private static final int COLOR_ACTIVE = 0xFF2A2A2A;
     private static final int COLOR_INACTIVE = 0xFFFFFFFF;
@@ -44,11 +55,14 @@ public class ProfileActivity extends AppCompatActivity {
         iconMyReports = findViewById(R.id.iconMyReports);
         iconProfile = findViewById(R.id.iconProfile);
 
-        myReportsRow = findViewById(R.id.myReportsRow);
         settingsRow = findViewById(R.id.settingsRow);
         logoutButton = findViewById(R.id.logoutButton);
 
-        // Profile tab is already active on this screen
+        reportsCountText = findViewById(R.id.reportsCountText);
+        confirmedCountText = findViewById(R.id.confirmedCountText);
+        clearedCountText = findViewById(R.id.clearedCountText);
+        trustScoreText = findViewById(R.id.trustScoreText);
+
         setActiveTab(bubbleProfile, iconProfile);
 
         navHome.setOnClickListener(v -> {
@@ -61,18 +75,10 @@ public class ProfileActivity extends AppCompatActivity {
             finish();
         });
 
-        navMyReports.setOnClickListener(v -> {
-            startActivity(new Intent(ProfileActivity.this, MyReportsActivity.class));
-        });
-
-        navProfile.setOnClickListener(v -> {
-            // already here, no-op
-        });
-
-        myReportsRow.setOnClickListener(v ->
+        navMyReports.setOnClickListener(v ->
                 startActivity(new Intent(ProfileActivity.this, MyReportsActivity.class)));
 
-
+        navProfile.setOnClickListener(v -> { /* already here */ });
 
         settingsRow.setOnClickListener(v ->
                 startActivity(new Intent(ProfileActivity.this, SettingsActivity.class)));
@@ -82,6 +88,41 @@ public class ProfileActivity extends AppCompatActivity {
             startActivity(new Intent(ProfileActivity.this, MainActivity.class));
             finish();
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshImpactStats();
+    }
+
+    private void refreshImpactStats() {
+        ObstacleReportStore store = ObstacleReportStore.getInstance(this);
+        List<AccessibilityReport> mine = store.getMyReports();
+        List<AccessibilityReport> all = store.getAllReports();
+
+        int myReports = mine.size();
+        int stillThereVotes = 0;
+        int cleared = 0;
+        int totalStill = 0;
+        int totalNot = 0;
+
+        for (AccessibilityReport report : all) {
+            stillThereVotes += report.getStillThereCount();
+            totalStill += report.getStillThereCount();
+            totalNot += report.getNotThereCount();
+            if (AccessibilityReport.STATUS_CLEARED.equals(report.getStatus())) {
+                cleared++;
+            }
+        }
+
+        reportsCountText.setText(String.valueOf(myReports > 0 ? myReports : all.size()));
+        confirmedCountText.setText(String.valueOf(stillThereVotes));
+        clearedCountText.setText(String.valueOf(cleared));
+        trustScoreText.setText(TrustCalculator.calculateTrust(
+                Math.max(totalStill, 1),
+                totalNot
+        ));
     }
 
     private void setActiveTab(View activeBubble, ImageView activeIcon) {

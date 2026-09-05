@@ -40,22 +40,22 @@ public class NotificationsActivity extends AppCompatActivity {
 
     private void loadSampleNotifications() {
         notifications.add(new NotificationItem(
-                "Report confirmed",
-                "Your report at Campus Library was confirmed by another user.",
+                "Obstacle still there",
+                "Another user confirmed the obstacle at Campus Library is still there.",
                 "2h ago",
                 true
         ));
 
         notifications.add(new NotificationItem(
-                "New issue near you",
+                "Obstacle nearby",
                 "A blocked tactile path was reported 200m from your last location.",
                 "5h ago",
                 true
         ));
 
         notifications.add(new NotificationItem(
-                "Report disputed",
-                "Your report on Persiaran Newron was disputed by another user.",
+                "Obstacle cleared",
+                "Community marked the Persiaran Newron obstacle as not there.",
                 "Yesterday",
                 false
         ));

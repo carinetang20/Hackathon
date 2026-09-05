@@ -6,89 +6,168 @@
     android:orientation="vertical"
     android:background="#F5F0E8">
 
-    <!-- Main content -->
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="24dp">
-        <ImageButton
-            android:id="@+id/notificationButton"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:layout_gravity="end"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_popup_reminder"
-            android:contentDescription="Notifications"
-            android:padding="10dp"
-            android:layout_marginTop="30dp"
-            app:tint="#2A2A2A" />
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
-        <!-- Greeting -->
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Hi there!"
-            android:textSize="30sp"
-            android:textStyle="bold"
-            android:textColor="#1A1A1A"
-            android:gravity="center"
-            android:layout_marginTop="32dp"
-            android:layout_marginBottom="6dp" />
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="16dp">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Where do you want to check today?"
-            android:textSize="16sp"
-            android:textColor="#6B7280"
-            android:gravity="center"
-            android:layout_marginBottom="36dp" />
-
-        <!-- Map preview circle -->
-        <FrameLayout
-            android:layout_width="240dp"
-            android:layout_height="240dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="32dp">
-
-            <View
+            <!-- Top bar: notifications only -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/dashed_circle" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp">
 
-            <androidx.cardview.widget.CardView
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_gravity="center"
-                app:cardCornerRadius="100dp"
-                app:cardElevation="0dp">
-
-                <ImageView
-                    android:id="@+id/mapPreviewImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/map_preview"
+                <FrameLayout
+                    android:id="@+id/notificationButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="end"
+                    android:background="@drawable/notification_icon_bg"
                     android:clickable="true"
                     android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:contentDescription="Map preview" />
+                    android:foreground="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Notifications"
+                    android:elevation="2dp">
 
-            </androidx.cardview.widget.CardView>
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_notifications"
+                        app:tint="#1A1A1A"
+                        android:contentDescription="@null" />
 
-        </FrameLayout>
+                    <View
+                        android:id="@+id/notificationBadge"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/unread_dot" />
+                </FrameLayout>
+            </FrameLayout>
 
-        <!-- Small spacer instead of a full flex-weight gap, so buttons sit higher -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Hi there!"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#1A1A1A"
+                android:gravity="center"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="4dp" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Where do you want to check today?"
+                android:textSize="15sp"
+                android:textColor="#6B7280"
+                android:gravity="center"
+                android:layout_marginBottom="20dp" />
 
+            <!-- PRIMARY: Scan Assist -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/scanAssistButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="@string/home_scan_cta"
+                android:textAllCaps="false"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="16dp"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#FFFFFF"
+                app:icon="@drawable/ic_camera"
+                app:iconTint="#FFFFFF"
+                app:iconGravity="textStart"
+                android:contentDescription="@string/home_scan_subtitle"
+                android:layout_marginBottom="8dp" />
 
-    </LinearLayout>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/home_scan_subtitle"
+                android:textSize="13sp"
+                android:textColor="#6B7280"
+                android:gravity="center"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Map preview circle -->
+            <FrameLayout
+                android:id="@+id/mapPreviewContainer"
+                android:layout_width="180dp"
+                android:layout_height="180dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Open campus map">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/dashed_circle" />
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="148dp"
+                    android:layout_height="148dp"
+                    android:layout_gravity="center"
+                    app:cardCornerRadius="74dp"
+                    app:cardElevation="4dp">
+
+                    <ImageView
+                        android:id="@+id/mapPreviewImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/map_preview"
+                        android:contentDescription="Map preview" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#33000000" />
+
+                    <FrameLayout
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/map_pin_circle">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_map_pin"
+                            android:contentDescription="@null" />
+                    </FrameLayout>
+                </androidx.cardview.widget.CardView>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tap circle for live map"
+                android:textSize="13sp"
+                android:textColor="#6B7280"
+                android:gravity="center"
+                android:layout_marginBottom="12dp" />
+
+        </LinearLayout>
+    </ScrollView>
 
     <!-- Floating bubble navbar -->
     <LinearLayout
@@ -103,7 +182,6 @@
         android:paddingEnd="12dp"
         android:gravity="center_vertical">
 
-        <!-- Home -->
         <FrameLayout
             android:id="@+id/navHome"
             android:layout_width="0dp"
@@ -129,8 +207,6 @@
                 android:contentDescription="Home" />
         </FrameLayout>
 
-
-        <!-- Report -->
         <FrameLayout
             android:id="@+id/navReport"
             android:layout_width="0dp"
@@ -155,6 +231,7 @@
                 app:tint="#FFFFFF"
                 android:contentDescription="Report" />
         </FrameLayout>
+
         <FrameLayout
             android:id="@+id/navMyReports"
             android:layout_width="0dp"
@@ -180,8 +257,6 @@
                 android:contentDescription="My Reports" />
         </FrameLayout>
 
-
-        <!-- Profile -->
         <FrameLayout
             android:id="@+id/navProfile"
             android:layout_width="0dp"
@@ -206,7 +281,6 @@
                 app:tint="#FFFFFF"
                 android:contentDescription="Profile" />
         </FrameLayout>
-
     </LinearLayout>
 
 </LinearLayout>

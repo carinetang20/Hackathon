@@ -26,16 +26,27 @@
             android:padding="8dp" />
 
         <TextView
+            android:id="@+id/titleText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="My Reports"
+            android:text="Community reports"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#1A1A1A"
             android:gravity="center"
             android:layout_marginEnd="40dp" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/subtitleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tap a report to mark Still there or Not there"
+        android:textSize="13sp"
+        android:textColor="#6B7280"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
 
     <!-- Report list -->
     <ScrollView
@@ -63,9 +74,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="You haven't submitted any reports yet"
+            android:text="No obstacles reported yet.\nUse + to report one."
             android:textSize="16sp"
-            android:textColor="#6B7280" />
+            android:textColor="#6B7280"
+            android:gravity="center" />
 
     </LinearLayout>
 

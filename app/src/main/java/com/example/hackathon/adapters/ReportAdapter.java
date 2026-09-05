@@ -16,10 +16,24 @@ import java.util.List;
 public class ReportAdapter
         extends RecyclerView.Adapter<ReportAdapter.ReportViewHolder> {
 
+    public interface OnReportClickListener {
+        void onReportClick(AccessibilityReport report);
+    }
+
     private List<AccessibilityReport> reports;
+    private OnReportClickListener listener;
 
     public ReportAdapter(List<AccessibilityReport> reports) {
         this.reports = reports;
+    }
+
+    public void setOnReportClickListener(OnReportClickListener listener) {
+        this.listener = listener;
+    }
+
+    public void setReports(List<AccessibilityReport> reports) {
+        this.reports = reports;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -45,12 +59,18 @@ public class ReportAdapter
         holder.issueText.setText(report.getIssueType());
 
         holder.confirmationText.setText(
-                "Yes " + report.getConfirmations()
+                "Still there " + report.getStillThereCount()
         );
 
         holder.disputeText.setText(
-                "Disagree " + report.getDisputes()
+                "Not there " + report.getNotThereCount()
         );
+
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onReportClick(report);
+            }
+        });
     }
 
     @Override

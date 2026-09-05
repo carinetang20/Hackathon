@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Hackathon"
+rootProject.name = "Dislocator"
 include(":app")
