@@ -11,15 +11,27 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Hackathon">
+
+        <!-- Main screen -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Map screen -->
+        <activity
+            android:name=".MapActivity"
+            android:exported="false" />
+
+        <!-- Report screen -->
+        <activity
+            android:name=".ReportActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>
