@@ -58,14 +58,6 @@ public class ReportAdapter
         holder.locationText.setText(report.getLocationName());
         holder.issueText.setText(report.getIssueType());
 
-        holder.confirmationText.setText(
-                "Still there " + report.getStillThereCount()
-        );
-
-        holder.disputeText.setText(
-                "Not there " + report.getNotThereCount()
-        );
-
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onReportClick(report);
@@ -83,18 +75,12 @@ public class ReportAdapter
 
         TextView locationText;
         TextView issueText;
-        TextView confirmationText;
-        TextView disputeText;
 
         public ReportViewHolder(@NonNull View itemView) {
             super(itemView);
 
             locationText = itemView.findViewById(R.id.locationText);
             issueText = itemView.findViewById(R.id.issueText);
-            confirmationText =
-                    itemView.findViewById(R.id.confirmationText);
-            disputeText =
-                    itemView.findViewById(R.id.disputeText);
         }
     }
 }

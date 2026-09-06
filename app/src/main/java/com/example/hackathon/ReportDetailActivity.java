@@ -25,8 +25,6 @@ public class ReportDetailActivity extends AppCompatActivity {
     private TextView locationText;
     private TextView issueText;
     private TextView descriptionText;
-    private TextView confirmationText;
-    private TextView disputeText;
     private TextView trustText;
     private TextView statusText;
     private TextView clearedBanner;
@@ -54,8 +52,6 @@ public class ReportDetailActivity extends AppCompatActivity {
         locationText = findViewById(R.id.locationText);
         issueText = findViewById(R.id.issueText);
         descriptionText = findViewById(R.id.descriptionText);
-        confirmationText = findViewById(R.id.confirmationText);
-        disputeText = findViewById(R.id.disputeText);
         trustText = findViewById(R.id.trustText);
         statusText = findViewById(R.id.statusText);
         clearedBanner = findViewById(R.id.clearedBanner);
@@ -96,9 +92,8 @@ public class ReportDetailActivity extends AppCompatActivity {
                 .setMessage("Confirm that this obstacle is still blocking the path.")
                 .setPositiveButton("Yes", (d, w) -> {
                     store.markStillThere(report.getId());
-                    report = store.getById(report.getId());
-                    displayReport();
                     Toast.makeText(this, "Marked still there", Toast.LENGTH_SHORT).show();
+                    finish();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -142,9 +137,6 @@ public class ReportDetailActivity extends AppCompatActivity {
         issueText.setText(report.getIssueType());
         descriptionText.setText(report.getDescription());
 
-        confirmationText.setText(report.getStillThereCount() + " still there");
-        disputeText.setText(report.getNotThereCount() + " not there");
-
         String reliability = TrustCalculator.calculateReportReliability(report);
         trustText.setText("Reliability · " + reliability);
         applyReliabilityColors(reliability);
@@ -159,8 +151,8 @@ public class ReportDetailActivity extends AppCompatActivity {
             verifiedAtText.setText("Last checked · not yet");
         }
 
-        boolean hasPhoto = bindPhoto(report.getPhotoPath());
-        photoEvidenceBadge.setVisibility(hasPhoto ? View.VISIBLE : View.GONE);
+        bindPhoto(report.getPhotoPath());
+        photoEvidenceBadge.setVisibility(View.GONE);
 
         String status = report.getStatus();
         statusText.setText(TrustCalculator.statusLabel(status));

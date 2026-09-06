@@ -161,12 +161,8 @@
 
                     <TextView
                         android:id="@+id/photoEvidenceBadge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Photo attached"
-                        android:textSize="12sp"
-                        android:textColor="#047857"
-                        android:layout_marginTop="10dp"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
                         android:visibility="gone" />
                 </LinearLayout>
             </LinearLayout>
@@ -185,34 +181,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="18dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="12dp">
-
-                    <TextView
-                        android:id="@+id/confirmationText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="0 still there"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="#059669" />
-
-                    <TextView
-                        android:id="@+id/disputeText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="0 not there"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="#DC2626"
-                        android:gravity="end" />
-                </LinearLayout>
 
                 <TextView
                     android:id="@+id/verifiedAtText"
@@ -235,7 +203,6 @@
                     android:padding="10dp"
                     android:gravity="center" />
 
-                <!-- Hidden compatibility views -->
                 <TextView
                     android:id="@+id/reportedAtText"
                     android:layout_width="0dp"

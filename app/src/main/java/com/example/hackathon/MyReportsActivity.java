@@ -82,8 +82,6 @@ public class MyReportsActivity extends AppCompatActivity {
             TextView statusView = itemView.findViewById(R.id.reportStatus);
             TextView issueTypeView = itemView.findViewById(R.id.reportIssueType);
             TextView descriptionView = itemView.findViewById(R.id.reportDescription);
-            TextView confirmedView = itemView.findViewById(R.id.reportConfirmed);
-            TextView disputedView = itemView.findViewById(R.id.reportDisputed);
             TextView timeView = itemView.findViewById(R.id.reportTime);
             ImageView thumb = itemView.findViewById(R.id.reportThumb);
             TextView thumbPlaceholder = itemView.findViewById(R.id.reportThumbPlaceholder);
@@ -92,9 +90,6 @@ public class MyReportsActivity extends AppCompatActivity {
             statusView.setText(TrustCalculator.statusLabel(report.getStatus()));
             issueTypeView.setText(report.getIssueType());
             descriptionView.setText(report.getDescription());
-            confirmedView.setText("✓ " + report.getStillThereCount() + " still there");
-            disputedView.setText("✕ " + report.getNotThereCount() + " not there");
-
             timeView.setText(ReportTimeFormat.postedBanner(report.getTimestamp()));
             timeView.setVisibility(View.VISIBLE);
 
