@@ -114,7 +114,7 @@
                 android:layout_marginBottom="8dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:contentDescription="Open campus map">
+                android:contentDescription="Open map">
 
                 <View
                     android:layout_width="match_parent"

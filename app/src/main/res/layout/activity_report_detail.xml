@@ -3,31 +3,34 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FBF5E7"
+    android:background="#F5F0E8"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="28dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="16dp">
 
             <ImageButton
                 android:id="@+id/backButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_revert"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/notification_icon_bg"
+                android:src="@drawable/ic_back"
+                android:padding="10dp"
                 android:contentDescription="Back"
-                android:padding="8dp" />
+                app:tint="#1A1A1A" />
 
             <TextView
                 android:layout_width="0dp"
@@ -38,112 +41,150 @@
                 android:textStyle="bold"
                 android:textColor="#1A1A1A"
                 android:gravity="center"
-                android:layout_marginEnd="40dp" />
+                android:layout_marginEnd="44dp" />
         </LinearLayout>
 
-        <!-- Report info card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            android:layout_marginBottom="16dp">
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF"
+            android:layout_marginBottom="12dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
+                android:orientation="vertical">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:background="#ECE7DC">
+
+                    <ImageView
+                        android:id="@+id/reportPhoto"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Reported obstacle photo"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/reportPhotoPlaceholder"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="No photo"
+                        android:textSize="14sp"
+                        android:textColor="#9CA3AF" />
+                </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
+                    android:orientation="vertical"
+                    android:padding="18dp">
 
-                    <TextView
-                        android:id="@+id/locationText"
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Campus Library"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:textColor="#1A1A1A" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="6dp">
+
+                        <TextView
+                            android:id="@+id/locationText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Library"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:textColor="#1A1A1A" />
+
+                        <TextView
+                            android:id="@+id/statusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Active"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textColor="#374151"
+                            android:background="#E5E7EB"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="4dp" />
+                    </LinearLayout>
 
                     <TextView
-                        android:id="@+id/statusText"
+                        android:id="@+id/uploadedAtBanner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Posted · —"
+                        android:textSize="13sp"
+                        android:textColor="#6B7280"
+                        android:layout_marginBottom="10dp"
+                        android:contentDescription="Posted date and time" />
+
+                    <!-- Kept for code compatibility; not shown -->
+                    <TextView
+                        android:id="@+id/postedTimeInline"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/issueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Active"
-                        android:textSize="12sp"
+                        android:text="Ramp Blocked"
+                        android:textSize="13sp"
                         android:textStyle="bold"
-                        android:textColor="#D97706"
-                        android:background="#FEF3C7"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="4dp" />
+                        android:textColor="#1D4ED8"
+                        android:background="#DBEAFE"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:paddingTop="5dp"
+                        android:paddingBottom="5dp"
+                        android:layout_marginBottom="10dp" />
+
+                    <TextView
+                        android:id="@+id/descriptionText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Construction is blocking the wheelchair ramp."
+                        android:textSize="15sp"
+                        android:textColor="#4B5563"
+                        android:lineSpacingExtra="2dp" />
+
+                    <TextView
+                        android:id="@+id/photoEvidenceBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Photo attached"
+                        android:textSize="12sp"
+                        android:textColor="#047857"
+                        android:layout_marginTop="10dp"
+                        android:visibility="gone" />
                 </LinearLayout>
-
-                <TextView
-                    android:id="@+id/issueText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Ramp Blocked"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="#3B82F6"
-                    android:background="#E8F0FE"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    android:layout_marginBottom="12dp" />
-
-                <TextView
-                    android:id="@+id/descriptionText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Construction is blocking the wheelchair ramp."
-                    android:textSize="15sp"
-                    android:textColor="#4B5563"
-                    android:lineSpacingExtra="2dp" />
-
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Community verification card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            android:layout_marginBottom="16dp">
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="#FFFFFF"
+            android:layout_marginBottom="12dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Is this obstacle still there?"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="#1A1A1A"
-                    android:layout_marginBottom="4dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Help keep the community map updated. If enough people say it is gone, the report will be marked cleared."
-                    android:textSize="13sp"
-                    android:textColor="#6B7280"
-                    android:layout_marginBottom="16dp" />
+                android:padding="18dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -156,80 +197,120 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Still there: 0"
-                        android:textSize="15sp"
-                        android:textColor="#059669"
-                        android:textStyle="bold" />
+                        android:text="0 still there"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#059669" />
 
                     <TextView
                         android:id="@+id/disputeText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Not there: 0"
-                        android:textSize="15sp"
-                        android:textColor="#DC2626"
+                        android:text="0 not there"
+                        android:textSize="14sp"
                         android:textStyle="bold"
+                        android:textColor="#DC2626"
                         android:gravity="end" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/verifiedAtText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Last checked · —"
+                    android:textSize="13sp"
+                    android:textColor="#6B7280"
+                    android:layout_marginBottom="8dp" />
 
                 <TextView
                     android:id="@+id/trustText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Trust Level: LOW"
-                    android:textSize="16sp"
+                    android:text="Reliability · LOW"
+                    android:textSize="13sp"
                     android:textStyle="bold"
-                    android:textColor="#1A1A1A"
+                    android:textColor="#374151"
+                    android:background="#F3F4F6"
+                    android:padding="10dp"
                     android:gravity="center" />
 
+                <!-- Hidden compatibility views -->
+                <TextView
+                    android:id="@+id/reportedAtText"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/reportedRelativeText"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/verifiedRelativeText"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/freshnessText"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/reliabilityDetailText"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Action buttons -->
-        <LinearLayout
+        <TextView
+            android:id="@+id/voteHintText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
+            android:text=""
+            android:textSize="13sp"
+            android:textColor="#6B7280"
+            android:layout_marginBottom="10dp"
+            android:visibility="gone" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/confirmButton"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="Still there"
-                android:textAllCaps="false"
-                android:textSize="15sp"
-                app:cornerRadius="14dp"
-                android:backgroundTint="#059669"
-                android:layout_marginEnd="8dp"
-                android:contentDescription="Mark obstacle as still there" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/confirmButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Still there"
+            android:textAllCaps="false"
+            android:textSize="15sp"
+            app:cornerRadius="14dp"
+            android:backgroundTint="#059669"
+            android:layout_marginBottom="8dp"
+            android:contentDescription="Confirm obstacle is still there" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/disputeButton"
-                android:layout_width="0dp"
-                android:layout_height="52dp"
-                android:layout_weight="1"
-                android:text="Not there"
-                android:textAllCaps="false"
-                android:textSize="15sp"
-                app:cornerRadius="14dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                app:strokeColor="#DC2626"
-                android:textColor="#DC2626"
-                android:layout_marginStart="8dp"
-                android:contentDescription="Mark obstacle as not there" />
-
-        </LinearLayout>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/disputeButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Not there"
+            android:textAllCaps="false"
+            android:textSize="15sp"
+            android:textColor="#DC2626"
+            app:strokeColor="#DC2626"
+            app:cornerRadius="14dp"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="Mark obstacle as not there" />
 
         <TextView
             android:id="@+id/clearedBanner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="This obstacle has been marked as cleared by the community."
+            android:text="This obstacle has been cleared."
             android:textSize="14sp"
-            android:textColor="#059669"
+            android:textColor="#047857"
             android:background="#D1FAE5"
             android:padding="14dp"
             android:gravity="center"

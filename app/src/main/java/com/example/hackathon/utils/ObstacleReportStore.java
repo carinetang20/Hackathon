@@ -12,7 +12,9 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -24,6 +26,7 @@ public class ObstacleReportStore {
     private static final String PREFS = "obstacle_reports";
     private static final String KEY_REPORTS = "reports";
     private static final String KEY_SEEDED = "seeded";
+    private static final String KEY_VOTED = "voted_report_ids";
 
     private static ObstacleReportStore instance;
 
@@ -91,12 +94,24 @@ public class ObstacleReportStore {
             String issueType,
             String description
     ) {
+        return addReport(locationName, issueType, description, null);
+    }
+
+    public AccessibilityReport addReport(
+            String locationName,
+            String issueType,
+            String description,
+            String photoPath
+    ) {
+        long now = System.currentTimeMillis();
         AccessibilityReport report = new AccessibilityReport(
                 UUID.randomUUID().toString(),
                 locationName,
                 issueType,
                 description,
-                System.currentTimeMillis(),
+                now,
+                0L,
+                photoPath,
                 0,
                 0,
                 AccessibilityReport.STATUS_ACTIVE,
@@ -107,10 +122,15 @@ public class ObstacleReportStore {
         return report;
     }
 
+    public boolean hasVoted(String reportId) {
+        return getVotedIds().contains(reportId);
+    }
+
     public void markStillThere(String id) {
         AccessibilityReport report = getById(id);
         if (report != null) {
             report.markStillThere();
+            rememberVote(id);
             save();
         }
     }
@@ -119,17 +139,35 @@ public class ObstacleReportStore {
         AccessibilityReport report = getById(id);
         if (report != null) {
             report.markNotThere();
+            rememberVote(id);
             save();
         }
     }
 
+    private void rememberVote(String id) {
+        Set<String> voted = new HashSet<>(getVotedIds());
+        voted.add(id);
+        prefs.edit().putStringSet(KEY_VOTED, voted).apply();
+    }
+
+    private Set<String> getVotedIds() {
+        Set<String> stored = prefs.getStringSet(KEY_VOTED, null);
+        if (stored == null) {
+            return new HashSet<>();
+        }
+        return new HashSet<>(stored);
+    }
+
     private void seedSampleReports() {
+        long now = System.currentTimeMillis();
         reports.add(new AccessibilityReport(
                 "seed-1",
-                "Campus Library",
+                "Library",
                 "Blocked Ramp",
                 "Construction materials are blocking the wheelchair ramp entrance.",
-                System.currentTimeMillis() - 3600_000L,
+                now - 3600_000L,
+                now - 1800_000L,
+                null,
                 3,
                 0,
                 AccessibilityReport.STATUS_CONFIRMED,
@@ -140,7 +178,9 @@ public class ObstacleReportStore {
                 "Persiaran Newron",
                 "Broken Crossing",
                 "The pedestrian crossing signal is not working.",
-                System.currentTimeMillis() - 7200_000L,
+                now - 7200_000L,
+                now - 5400_000L,
+                null,
                 2,
                 1,
                 AccessibilityReport.STATUS_UNCERTAIN,
@@ -151,7 +191,9 @@ public class ObstacleReportStore {
                 "Institute for Postgraduate Studies",
                 "Blocked Tactile Path",
                 "Tactile paving is covered by parked bicycles.",
-                System.currentTimeMillis() - 10_800_000L,
+                now - 10_800_000L,
+                now - 9000_000L,
+                null,
                 5,
                 0,
                 AccessibilityReport.STATUS_CONFIRMED,
@@ -172,7 +214,6 @@ public class ObstacleReportStore {
                 reports.add(AccessibilityReport.fromJson(obj));
             }
         } catch (JSONException ignored) {
-            // Corrupted store — start fresh
             reports.clear();
         }
     }

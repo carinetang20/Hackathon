@@ -114,7 +114,7 @@
                         android:id="@+id/bioText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Helping visually impaired peers navigate campus safely by reporting obstacles."
+                        android:text="Helping visually impaired peers navigate safely by reporting obstacles."
                         android:textSize="13sp"
                         android:textColor="#6B7280"
                         android:gravity="center"

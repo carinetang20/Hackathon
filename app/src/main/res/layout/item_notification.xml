@@ -57,7 +57,7 @@
                 android:id="@+id/notifSubtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Your report at Campus Library was confirmed by another user."
+                android:text="Your report at the Library was confirmed by another user."
                 android:textSize="13sp"
                 android:textColor="#6B7280"
                 android:maxLines="2"

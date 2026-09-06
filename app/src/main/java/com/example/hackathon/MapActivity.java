@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.hackathon.models.AccessibilityReport;
 import com.example.hackathon.utils.ObstacleReportStore;
+import com.example.hackathon.utils.ReportTimeFormat;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -154,8 +155,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 if (report != null) {
                     showSheet(
                             report.getIssueType(),
-                            report.getLocationName() + " · " + report.getStatus()
-                                    + " · Still there " + report.getStillThereCount()
+                            ReportTimeFormat.postedBanner(report.getTimestamp())
+                                    + "\n"
+                                    + report.getLocationName()
+                                    + " · "
+                                    + report.getStatus()
                     );
                 }
             } else {
@@ -178,8 +182,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
 
         showSheet(
-                "Multimedia University — MMU Cyberjaya",
-                "Live campus map · red pins are community obstacle reports"
+                "Nearby places",
+                "Live map · red pins are community obstacle reports"
         );
     }
 
@@ -222,7 +226,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             Marker marker = map.addMarker(new MarkerOptions()
                     .position(position)
                     .title(report.getIssueType())
-                    .snippet(report.getLocationName() + " · " + report.getStatus())
+                    .snippet(ReportTimeFormat.postedBanner(report.getTimestamp())
+                            + " · " + report.getLocationName())
                     .icon(BitmapDescriptorFactory.defaultMarker(hue)));
 
             if (marker != null) {
@@ -242,10 +247,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 "STAD Building", "Faculty",
                 new LatLng(2.9206, 101.6565)));
         campusPlaces.add(new CampusPlace(
-                "MMU Garden", "Landmark",
+                "Garden", "Landmark",
                 new LatLng(2.9218, 101.6568)));
         campusPlaces.add(new CampusPlace(
-                "Campus Library", "Facility",
+                "Library", "Facility",
                 new LatLng(2.9209, 101.6550)));
     }
 
@@ -263,7 +268,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     || place.category.toLowerCase(Locale.US).contains(q)) {
                 map.animateCamera(CameraUpdateFactory.newLatLngZoom(place.position, 17f));
                 selectedReportId = null;
-                showSheet(place.name, place.category + " · MMU Cyberjaya");
+                showSheet(place.name, place.category + " · nearby");
                 return;
             }
         }
@@ -276,7 +281,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 selectedReportId = report.getId();
                 showSheet(
                         report.getIssueType(),
-                        report.getLocationName() + " · " + report.getStatus()
+                        ReportTimeFormat.postedBanner(report.getTimestamp())
+                                + "\n"
+                                + report.getLocationName()
+                                + " · "
+                                + report.getStatus()
                 );
                 // Approximate camera to campus center for demo markers
                 map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16.5f));
@@ -284,7 +293,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         }
 
-        Toast.makeText(this, "No matching place on campus", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "No matching place found", Toast.LENGTH_SHORT).show();
     }
 
     private void showSheet(String title, String subtitle) {
@@ -330,7 +339,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         showSheet("Your location", "Centered on your current position");
                     } else if (map != null) {
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
-                        showSheet("MMU Cyberjaya", "Showing campus center");
+                        showSheet("Map center", "Showing your area");
                     }
                 })
                 .addOnFailureListener(e -> {

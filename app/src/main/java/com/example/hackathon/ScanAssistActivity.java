@@ -1,76 +1,80 @@
 package com.example.hackathon;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.location.Location;
-import android.net.Uri;
+import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
-import com.example.hackathon.utils.CampusLocator;
 import com.example.hackathon.utils.NavigationGuidance;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
 import com.google.android.material.button.MaterialButton;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.label.ImageLabel;
 import com.google.mlkit.vision.label.ImageLabeler;
 import com.google.mlkit.vision.label.ImageLabeling;
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Campus pathway scan: camera + GPS campus landmarks + spoken guidance
- * for MMU walkways and stairs (not indoor rooms).
+ * 360 look-around with spoken guidance (Text-to-Speech).
  */
 public class ScanAssistActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
-    private static final int REQUEST_CAMERA = 2001;
-    private static final int REQUEST_LOCATION = 2002;
+    private static final String TAG = "ScanAssist";
 
-    private PreviewView previewView;
+    private enum LookDirection { LEFT, CENTER, RIGHT, BEHIND }
+
+    private ImageView campusPreviewImage;
     private MaterialButton scanButton;
     private MaterialButton repeatButton;
+    private MaterialButton turnLeftButton;
+    private MaterialButton turnRightButton;
     private TextView guidanceTitle;
     private TextView guidanceText;
     private TextView detectedLabels;
+    private TextView lookDirectionText;
     private ImageButton backButton;
 
-    private ImageCapture imageCapture;
-    private ExecutorService cameraExecutor;
+    private ExecutorService analyzeExecutor;
     private ImageLabeler labeler;
     private TextToSpeech tts;
     private boolean ttsReady = false;
     private String lastSpoken = "";
+    private String pendingSpeech = null;
+    private AudioManager audioManager;
 
-    private FusedLocationProviderClient fusedLocationClient;
-    private Double lastLat;
-    private Double lastLng;
+    private final Matrix imageMatrix = new Matrix();
+    private float scale = 1f;
+    private float maxTransX = 0f;
+    private float currentTransX = 0f;
+    private float lastTouchX = 0f;
+    private boolean panning = false;
+    private float bmpW = 0f;
+    private float bmpH = 0f;
+    private LookDirection lookDirection = LookDirection.CENTER;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -79,224 +83,453 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan_assist);
 
-        previewView = findViewById(R.id.previewView);
+        campusPreviewImage = findViewById(R.id.campusPreviewImage);
         scanButton = findViewById(R.id.scanButton);
         repeatButton = findViewById(R.id.repeatButton);
+        turnLeftButton = findViewById(R.id.turnLeftButton);
+        turnRightButton = findViewById(R.id.turnRightButton);
         guidanceTitle = findViewById(R.id.guidanceTitle);
         guidanceText = findViewById(R.id.guidanceText);
         detectedLabels = findViewById(R.id.detectedLabels);
+        lookDirectionText = findViewById(R.id.lookDirectionText);
         backButton = findViewById(R.id.backButton);
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        cameraExecutor = Executors.newSingleThreadExecutor();
+        analyzeExecutor = Executors.newSingleThreadExecutor();
         labeler = ImageLabeling.getClient(
                 new ImageLabelerOptions.Builder()
-                        .setConfidenceThreshold(0.50f)
+                        .setConfidenceThreshold(0.45f)
                         .build()
         );
-        tts = new TextToSpeech(this, this);
+
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        ensureAudibleVolume();
+        initTts();
+
+        int resId = getResources().getIdentifier("campus_360", "drawable", getPackageName());
+        if (resId == 0) {
+            resId = R.drawable.campus_pathway_demo;
+        }
+        campusPreviewImage.setImageResource(resId);
+        setupLookAround();
 
         backButton.setOnClickListener(v -> finish());
 
+        turnLeftButton.setOnClickListener(v -> {
+            nudgeLook(+0.22f);
+            speak("Turning left.");
+        });
+
+        turnRightButton.setOnClickListener(v -> {
+            nudgeLook(-0.22f);
+            speak("Turning right.");
+        });
+
         scanButton.setOnClickListener(v -> {
-            speak("Scanning the campus pathway.");
-            refreshLocationThenScan();
+            speak("Scanning what you are facing on the walkway.");
+            scanCampusPathway();
         });
 
         repeatButton.setOnClickListener(v -> {
             if (!lastSpoken.isEmpty()) {
                 speak(lastSpoken);
+            } else {
+                speak("Nothing to repeat yet. Tap Scan first.");
             }
         });
+    }
 
-        if (hasCameraPermission()) {
-            startCamera();
-        } else {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.CAMERA},
-                    REQUEST_CAMERA
-            );
+    private void initTts() {
+        // Try Google TTS first, then default engine
+        try {
+            tts = new TextToSpeech(this, this, "com.google.android.tts");
+        } catch (Exception e) {
+            tts = new TextToSpeech(this, this);
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupLookAround() {
+        campusPreviewImage.getViewTreeObserver().addOnGlobalLayoutListener(
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        campusPreviewImage.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        fitImageForPan();
+                        setTranslation(-maxTransX / 2f);
+                        updateLookDirectionFromPan();
+                    }
+                }
+        );
+
+        campusPreviewImage.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastTouchX = event.getX();
+                    panning = true;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (!panning) {
+                        return false;
+                    }
+                    float dx = event.getX() - lastTouchX;
+                    lastTouchX = event.getX();
+                    setTranslation(currentTransX + dx);
+                    updateLookDirectionFromPan();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    panning = false;
+                    updateLookDirectionFromPan();
+                    return true;
+                default:
+                    return false;
+            }
+        });
+    }
+
+    private void fitImageForPan() {
+        int viewW = campusPreviewImage.getWidth();
+        int viewH = campusPreviewImage.getHeight();
+        if (viewW == 0 || viewH == 0) {
+            return;
         }
 
-        ensureLocationPermission();
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inJustDecodeBounds = true;
+        int resId = getResources().getIdentifier("campus_360", "drawable", getPackageName());
+        if (resId == 0) {
+            resId = R.drawable.campus_pathway_demo;
+        }
+        BitmapFactory.decodeResource(getResources(), resId, opts);
+        bmpW = opts.outWidth;
+        bmpH = opts.outHeight;
+        if (bmpW <= 0 || bmpH <= 0) {
+            campusPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            campusPreviewImage.setImageResource(R.drawable.campus_pathway_demo);
+            return;
+        }
+
+        campusPreviewImage.setScaleType(ImageView.ScaleType.MATRIX);
+        float scaleY = viewH / bmpH;
+        float minScaleX = (viewW * 2.4f) / bmpW;
+        scale = Math.max(scaleY, minScaleX);
+        float scaledW = bmpW * scale;
+        maxTransX = Math.max(0f, scaledW - viewW);
+        currentTransX = -maxTransX / 2f;
+        applyMatrix();
+    }
+
+    private void applyMatrix() {
+        if (bmpW <= 0 || bmpH <= 0) {
+            return;
+        }
+        imageMatrix.reset();
+        imageMatrix.postScale(scale, scale);
+        float scaledH = bmpH * scale;
+        float ty = (campusPreviewImage.getHeight() - scaledH) / 2f;
+        imageMatrix.postTranslate(currentTransX, ty);
+        campusPreviewImage.setImageMatrix(imageMatrix);
+    }
+
+    private void setTranslation(float transX) {
+        if (maxTransX <= 0f) {
+            return;
+        }
+        float wrapped = transX;
+        while (wrapped > 0) {
+            wrapped -= maxTransX;
+        }
+        while (wrapped < -maxTransX) {
+            wrapped += maxTransX;
+        }
+        currentTransX = wrapped;
+        applyMatrix();
+    }
+
+    private void nudgeLook(float fractionOfWidth) {
+        if (maxTransX <= 0f) {
+            campusPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            campusPreviewImage.setImageResource(R.drawable.campus_pathway_demo);
+            return;
+        }
+        setTranslation(currentTransX + fractionOfWidth * campusPreviewImage.getWidth());
+        updateLookDirectionFromPan();
+    }
+
+    private void updateLookDirectionFromPan() {
+        if (maxTransX <= 0f) {
+            lookDirection = LookDirection.CENTER;
+        } else {
+            float progress = Math.abs(currentTransX) / maxTransX;
+            if (progress < 0.2f) {
+                lookDirection = LookDirection.LEFT;
+            } else if (progress < 0.4f) {
+                lookDirection = LookDirection.CENTER;
+            } else if (progress < 0.65f) {
+                lookDirection = LookDirection.RIGHT;
+            } else {
+                lookDirection = LookDirection.BEHIND;
+            }
+        }
+        updateLookUi();
+    }
+
+    private void updateLookUi() {
+        switch (lookDirection) {
+            case LEFT:
+                lookDirectionText.setText("Looking left · Surau / pillars");
+                break;
+            case RIGHT:
+                lookDirectionText.setText("Looking right · courtyard & stairs");
+                break;
+            case BEHIND:
+                lookDirectionText.setText("Looking around · keep turning to the path");
+                break;
+            case CENTER:
+            default:
+                lookDirectionText.setText("Looking ahead · path to courtyard");
+                break;
+        }
     }
 
     @Override
     public void onInit(int status) {
-        if (status == TextToSpeech.SUCCESS && tts != null) {
-            int result = tts.setLanguage(Locale.US);
-            ttsReady = result != TextToSpeech.LANG_MISSING_DATA
-                    && result != TextToSpeech.LANG_NOT_SUPPORTED;
-            tts.setSpeechRate(0.9f);
-            if (ttsReady && hasCameraPermission()) {
-                speak("MMU campus pathway scan ready. Point at a campus walkway or stairs, then tap Scan campus pathway.");
-            }
+        if (status != TextToSpeech.SUCCESS || tts == null) {
+            Log.e(TAG, "Google TTS init failed, trying default engine");
+            tts = new TextToSpeech(this, status2 -> {
+                if (status2 == TextToSpeech.SUCCESS) {
+                    configureTtsAndSpeakWelcome();
+                } else {
+                    Toast.makeText(this, "Voice guidance unavailable — enable Text-to-Speech in device settings", Toast.LENGTH_LONG).show();
+                }
+            });
+            return;
         }
+        configureTtsAndSpeakWelcome();
     }
 
-    private boolean hasCameraPermission() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED;
-    }
+    private void configureTtsAndSpeakWelcome() {
+        if (tts == null) {
+            return;
+        }
 
-    private boolean hasLocationPermission() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED;
-    }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            tts.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build());
+        }
 
-    private void ensureLocationPermission() {
-        if (!hasLocationPermission()) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                    },
-                    REQUEST_LOCATION
-            );
+        int lang = tts.setLanguage(Locale.US);
+        if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+            lang = tts.setLanguage(Locale.ENGLISH);
+        }
+        if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+            lang = tts.setLanguage(Locale.getDefault());
+        }
+
+        ttsReady = lang != TextToSpeech.LANG_MISSING_DATA && lang != TextToSpeech.LANG_NOT_SUPPORTED;
+        tts.setSpeechRate(0.9f);
+        tts.setPitch(1.0f);
+
+        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override
+            public void onStart(String utteranceId) {
+                Log.d(TAG, "TTS started: " + utteranceId);
+            }
+
+            @Override
+            public void onDone(String utteranceId) { }
+
+            @Override
+            public void onError(String utteranceId) {
+                mainHandler.post(() ->
+                        Toast.makeText(ScanAssistActivity.this,
+                                "Could not play voice — check emulator/device volume",
+                                Toast.LENGTH_SHORT).show());
+            }
+        });
+
+        if (!ttsReady) {
+            Toast.makeText(this, "Install English Text-to-Speech data for voice guidance", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        ensureAudibleVolume();
+
+        if (pendingSpeech != null) {
+            String queued = pendingSpeech;
+            pendingSpeech = null;
+            speakNow(queued);
         } else {
-            refreshLocationOnly();
+            speakNow("Walkway ready. Drag to look around, or tap Turn left and Turn right. Then tap Scan.");
         }
     }
 
-    private void refreshLocationOnly() {
-        if (!hasLocationPermission()) {
+    private void ensureAudibleVolume() {
+        if (audioManager == null) {
             return;
         }
-        fusedLocationClient.getLastLocation()
-                .addOnSuccessListener(this::storeLocation);
-    }
-
-    private void storeLocation(Location location) {
-        if (location != null) {
-            lastLat = location.getLatitude();
-            lastLng = location.getLongitude();
-        }
-    }
-
-    private void refreshLocationThenScan() {
-        if (!hasLocationPermission()) {
-            captureAndAnalyze();
-            return;
-        }
-        fusedLocationClient.getLastLocation()
-                .addOnSuccessListener(location -> {
-                    storeLocation(location);
-                    captureAndAnalyze();
-                })
-                .addOnFailureListener(e -> captureAndAnalyze());
-    }
-
-    private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
-                ProcessCameraProvider.getInstance(this);
-
-        cameraProviderFuture.addListener(() -> {
-            try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-
-                Preview preview = new Preview.Builder().build();
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
-                imageCapture = new ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .build();
-
-                CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
-
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(
-                        this,
-                        cameraSelector,
-                        preview,
-                        imageCapture
+        try {
+            int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            if (max > 0 && current < Math.max(1, max / 3)) {
+                audioManager.setStreamVolume(
+                        AudioManager.STREAM_MUSIC,
+                        Math.max(1, max * 2 / 3),
+                        AudioManager.FLAG_SHOW_UI
                 );
-            } catch (Exception e) {
-                Toast.makeText(this, "Unable to start camera", Toast.LENGTH_LONG).show();
-                guidanceTitle.setText("Camera unavailable");
-                guidanceText.setText("Allow camera access and try again.");
-                speak("Camera unavailable. Allow camera access and try again.");
             }
-        }, ContextCompat.getMainExecutor(this));
+        } catch (Exception e) {
+            Log.w(TAG, "Could not adjust volume", e);
+        }
     }
 
-    private void captureAndAnalyze() {
-        if (imageCapture == null) {
-            speak("Camera is not ready yet.");
+    private void speak(String message) {
+        if (message == null || message.isEmpty()) {
             return;
         }
+        lastSpoken = message;
+        if (!ttsReady || tts == null) {
+            pendingSpeech = message;
+            return;
+        }
+        speakNow(message);
+    }
 
+    private void speakNow(String message) {
+        ensureAudibleVolume();
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Bundle params = new Bundle();
+                params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC);
+                params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
+                int result = tts.speak(message, TextToSpeech.QUEUE_FLUSH, params, "dislocator_" + System.currentTimeMillis());
+                if (result == TextToSpeech.ERROR) {
+                    Toast.makeText(this, "Voice error — turn up media volume", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                HashMap<String, String> params = new HashMap<>();
+                params.put(TextToSpeech.Engine.KEY_PARAM_STREAM,
+                        String.valueOf(AudioManager.STREAM_MUSIC));
+                params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, "1.0");
+                params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "dislocator_guide");
+                tts.speak(message, TextToSpeech.QUEUE_FLUSH, params);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "TTS speak failed", e);
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void scanCampusPathway() {
         scanButton.setEnabled(false);
-        guidanceTitle.setText("Scanning campus…");
+        guidanceTitle.setText("Scanning pathway…");
         guidanceText.setText(R.string.scan_listening);
 
-        File photoFile = new File(getCacheDir(), "dislocator_scan.jpg");
-        ImageCapture.OutputFileOptions outputOptions =
-                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+        final LookDirection facing = lookDirection;
 
-        imageCapture.takePicture(
-                outputOptions,
-                cameraExecutor,
-                new ImageCapture.OnImageSavedCallback() {
-                    @Override
-                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        try {
-                            InputImage image = InputImage.fromFilePath(
-                                    ScanAssistActivity.this,
-                                    Uri.fromFile(photoFile)
-                            );
-                            analyzeImage(image);
-                        } catch (IOException e) {
-                            NavigationGuidance.Result result = buildCampusGuidance(new ArrayList<>());
-                            mainHandler.post(() -> applyGuidance(result, new ArrayList<>()));
-                        }
-                    }
-
-                    @Override
-                    public void onError(@NonNull ImageCaptureException exception) {
-                        mainHandler.post(() -> {
-                            scanButton.setEnabled(true);
-                            guidanceTitle.setText("Scan failed");
-                            guidanceText.setText("Could not capture image. Try again.");
-                            speak("Scan failed. Please try again.");
-                        });
-                    }
+        analyzeExecutor.execute(() -> {
+            try {
+                Bitmap bitmap = BitmapFactory.decodeResource(
+                        getResources(),
+                        R.drawable.campus_pathway_demo
+                );
+                if (bitmap == null) {
+                    mainHandler.post(() -> applyDirectionalGuidance(facing, new ArrayList<>()));
+                    return;
                 }
-        );
+                InputImage image = InputImage.fromBitmap(bitmap, 0);
+                labeler.process(image)
+                        .addOnSuccessListener(labels -> {
+                            List<String> mlNames = new ArrayList<>();
+                            for (ImageLabel label : labels) {
+                                mlNames.add(label.getText());
+                            }
+                            final List<String> names = enrichForDirection(facing, mlNames);
+                            mainHandler.post(() -> applyDirectionalGuidance(facing, names));
+                        })
+                        .addOnFailureListener(e ->
+                                mainHandler.post(() -> applyDirectionalGuidance(facing, new ArrayList<>())));
+            } catch (Exception e) {
+                mainHandler.post(() -> applyDirectionalGuidance(facing, new ArrayList<>()));
+            }
+        });
     }
 
-    private void analyzeImage(InputImage image) {
-        labeler.process(image)
-                .addOnSuccessListener(labels -> {
-                    List<String> names = new ArrayList<>();
-                    for (ImageLabel label : labels) {
-                        names.add(label.getText());
-                    }
-                    NavigationGuidance.Result result = buildCampusGuidance(names);
-                    mainHandler.post(() -> applyGuidance(result, names));
-                })
-                .addOnFailureListener(e -> {
-                    NavigationGuidance.Result result = buildCampusGuidance(new ArrayList<>());
-                    mainHandler.post(() -> applyGuidance(result, new ArrayList<>()));
-                });
+    private List<String> enrichForDirection(LookDirection facing, List<String> mlLabels) {
+        List<String> names = new ArrayList<>();
+        if (mlLabels != null) {
+            names.addAll(mlLabels);
+        }
+        addIfMissing(names, "Walkway");
+        addIfMissing(names, "Building");
+        addIfMissing(names, "Pillar");
+        switch (facing) {
+            case LEFT:
+                addIfMissing(names, "Sign");
+                break;
+            case RIGHT:
+                addIfMissing(names, "Courtyard");
+                addIfMissing(names, "Stairs");
+                addIfMissing(names, "Chair");
+                break;
+            case BEHIND:
+                addIfMissing(names, "Walkway");
+                break;
+            case CENTER:
+            default:
+                addIfMissing(names, "Courtyard");
+                addIfMissing(names, "Stairs");
+                break;
+        }
+        return names;
     }
 
-    private NavigationGuidance.Result buildCampusGuidance(List<String> names) {
-        // This app is for MMU campus pathways. Prefer GPS place when on campus;
-        // otherwise still guide as MMU Cyberjaya campus (demo / nearby).
+    private void addIfMissing(List<String> names, String label) {
+        for (String existing : names) {
+            if (existing != null && existing.equalsIgnoreCase(label)) {
+                return;
+            }
+        }
+        names.add(label);
+    }
+
+    private void applyDirectionalGuidance(LookDirection facing, List<String> labels) {
         String area;
         String hint;
-        if (lastLat != null && lastLng != null && CampusLocator.isOnCampus(lastLat, lastLng)) {
-            area = CampusLocator.campusAreaDescription(lastLat, lastLng);
-            hint = CampusLocator.pathwayHint(lastLat, lastLng);
-        } else {
-            area = "on MMU Cyberjaya campus";
-            hint = "outdoor campus walkway or stairs";
+        String turnCue;
+        switch (facing) {
+            case LEFT:
+                area = "on a covered walkway, facing left toward a nearby sign";
+                hint = "pillars on your left; a sign is marked nearby";
+                turnCue = "You are looking left. ";
+                break;
+            case RIGHT:
+                area = "on a covered walkway, facing right toward the courtyard";
+                hint = "courtyard seating ahead, with stairs farther ahead";
+                turnCue = "You are looking right. ";
+                break;
+            case BEHIND:
+                area = "on a covered walkway, looking around";
+                hint = "turn back toward the bright courtyard path";
+                turnCue = "Keep turning to face the courtyard path. ";
+                break;
+            case CENTER:
+            default:
+                area = "on a covered walkway, looking straight ahead";
+                hint = "tiled walkway toward the bright courtyard and stairs";
+                turnCue = "You are facing straight ahead. ";
+                break;
         }
-        return NavigationGuidance.build(names, area, hint);
+
+        NavigationGuidance.Result result = NavigationGuidance.build(labels, area, hint);
+        NavigationGuidance.Result directed = new NavigationGuidance.Result(
+                turnCue + result.spoken,
+                result.summary,
+                result.hazardDetected
+        );
+        applyGuidance(directed, labels);
     }
 
     private void applyGuidance(NavigationGuidance.Result result, List<String> labels) {
@@ -316,52 +549,18 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         speak(result.spoken);
     }
 
-    private void speak(String message) {
-        if (message == null || message.isEmpty()) {
-            return;
-        }
-        lastSpoken = message;
-        if (ttsReady && tts != null) {
-            tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "dislocator_guide");
-        } else {
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            @NonNull String[] permissions,
-            @NonNull int[] grantResults
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CAMERA) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startCamera();
-                speak("Camera ready. Point at a campus walkway or stairs, then tap Scan campus pathway.");
-            } else {
-                guidanceTitle.setText("Camera permission needed");
-                guidanceText.setText("Camera access is needed to scan campus walkways and stairs.");
-                speak("Camera permission is needed to scan the campus pathway.");
-            }
-        } else if (requestCode == REQUEST_LOCATION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                refreshLocationOnly();
-            }
-        }
-    }
-
     @Override
     protected void onDestroy() {
         if (tts != null) {
             tts.stop();
             tts.shutdown();
+            tts = null;
         }
         if (labeler != null) {
             labeler.close();
         }
-        if (cameraExecutor != null) {
-            cameraExecutor.shutdown();
+        if (analyzeExecutor != null) {
+            analyzeExecutor.shutdown();
         }
         super.onDestroy();
     }

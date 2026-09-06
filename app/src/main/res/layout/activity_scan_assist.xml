@@ -3,13 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="#111111">
 
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
+    <!-- Pathway preview — drag for 360 look-around -->
+    <ImageView
+        android:id="@+id/campusPreviewImage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:contentDescription="Live camera preview for scanning the path ahead" />
+        android:scaleType="matrix"
+        android:src="@drawable/campus_360"
+        android:contentDescription="360 walkway. Drag to look around." />
 
     <!-- Top bar -->
     <LinearLayout
@@ -43,15 +46,16 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/scan_assist_title"
+                android:text="360° walkway"
                 android:textColor="#FFFFFF"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/lookDirectionText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="MMU campus pathway guidance"
+                android:text="Drag to look around · Turn left / right"
                 android:textColor="#D1D5DB"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -71,7 +75,7 @@
             android:id="@+id/guidanceTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Ready for campus pathway scan"
+            android:text="Look around in 360°"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -85,8 +89,8 @@
             android:textColor="#CFCFCF"
             android:textSize="14sp"
             android:lineSpacingExtra="3dp"
-            android:layout_marginBottom="16dp"
-            android:minHeight="72dp" />
+            android:layout_marginBottom="12dp"
+            android:minHeight="64dp" />
 
         <TextView
             android:id="@+id/detectedLabels"
@@ -95,16 +99,53 @@
             android:text=""
             android:textColor="#9CA3AF"
             android:textSize="12sp"
-            android:layout_marginBottom="14dp"
+            android:layout_marginBottom="10dp"
             android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="10dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/turnLeftButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Turn left"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                app:cornerRadius="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#FFFFFF"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="Turn left" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/turnRightButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Turn right"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                app:cornerRadius="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#FFFFFF"
+                android:textColor="#FFFFFF"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Turn right" />
+        </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/scanButton"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
+            android:layout_height="56dp"
             android:text="@string/scan_button"
             android:textAllCaps="false"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             app:cornerRadius="16dp"
             android:backgroundTint="#FFFFFF"
@@ -112,7 +153,7 @@
             app:icon="@drawable/ic_camera"
             app:iconTint="#1A1A1A"
             app:iconGravity="textStart"
-            android:contentDescription="Scan surroundings and hear spoken directions" />
+            android:contentDescription="Scan what you are facing" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/repeatButton"
@@ -127,7 +168,7 @@
             app:strokeColor="#FFFFFF"
             android:textColor="#FFFFFF"
             android:visibility="gone"
-            android:contentDescription="Repeat the last spoken guidance" />
+            android:contentDescription="Repeat audio" />
     </LinearLayout>
 
 </FrameLayout>

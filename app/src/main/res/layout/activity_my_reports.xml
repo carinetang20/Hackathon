@@ -42,7 +42,7 @@
         android:id="@+id/subtitleText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Tap a report to mark Still there or Not there"
+        android:text="Tap a report to confirm or dispute"
         android:textSize="13sp"
         android:textColor="#6B7280"
         android:gravity="center"

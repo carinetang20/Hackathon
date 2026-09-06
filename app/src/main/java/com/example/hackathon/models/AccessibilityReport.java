@@ -19,6 +19,8 @@ public class AccessibilityReport {
     private String issueType;
     private String description;
     private long timestamp;
+    private long lastVerifiedAt;
+    private String photoPath;
     private int stillThereCount;
     private int notThereCount;
     private String status;
@@ -31,7 +33,7 @@ public class AccessibilityReport {
             String description,
             long timestamp
     ) {
-        this(id, locationName, issueType, description, timestamp, 0, 0, STATUS_ACTIVE, false);
+        this(id, locationName, issueType, description, timestamp, 0, null, 0, 0, STATUS_ACTIVE, false);
     }
 
     public AccessibilityReport(
@@ -40,6 +42,8 @@ public class AccessibilityReport {
             String issueType,
             String description,
             long timestamp,
+            long lastVerifiedAt,
+            String photoPath,
             int stillThereCount,
             int notThereCount,
             String status,
@@ -50,6 +54,8 @@ public class AccessibilityReport {
         this.issueType = issueType;
         this.description = description;
         this.timestamp = timestamp;
+        this.lastVerifiedAt = lastVerifiedAt;
+        this.photoPath = photoPath;
         this.stillThereCount = stillThereCount;
         this.notThereCount = notThereCount;
         this.status = status != null ? status : STATUS_ACTIVE;
@@ -75,6 +81,18 @@ public class AccessibilityReport {
 
     public long getTimestamp() {
         return timestamp;
+    }
+
+    public long getLastVerifiedAt() {
+        return lastVerifiedAt;
+    }
+
+    public String getPhotoPath() {
+        return photoPath;
+    }
+
+    public boolean hasPhoto() {
+        return photoPath != null && !photoPath.trim().isEmpty();
     }
 
     public int getStillThereCount() {
@@ -109,11 +127,13 @@ public class AccessibilityReport {
 
     public void markStillThere() {
         stillThereCount++;
+        lastVerifiedAt = System.currentTimeMillis();
         refreshStatus();
     }
 
     public void markNotThere() {
         notThereCount++;
+        lastVerifiedAt = System.currentTimeMillis();
         refreshStatus();
     }
 
@@ -155,6 +175,8 @@ public class AccessibilityReport {
         json.put("issueType", issueType);
         json.put("description", description);
         json.put("timestamp", timestamp);
+        json.put("lastVerifiedAt", lastVerifiedAt);
+        json.put("photoPath", photoPath != null ? photoPath : "");
         json.put("stillThereCount", stillThereCount);
         json.put("notThereCount", notThereCount);
         json.put("status", status);
@@ -163,12 +185,18 @@ public class AccessibilityReport {
     }
 
     public static AccessibilityReport fromJson(JSONObject json) throws JSONException {
+        String photo = json.optString("photoPath", "");
+        if (photo != null && photo.isEmpty()) {
+            photo = null;
+        }
         return new AccessibilityReport(
                 json.getString("id"),
                 json.getString("locationName"),
                 json.getString("issueType"),
                 json.getString("description"),
                 json.getLong("timestamp"),
+                json.optLong("lastVerifiedAt", 0L),
+                photo,
                 json.optInt("stillThereCount", json.optInt("confirmations", 0)),
                 json.optInt("notThereCount", json.optInt("disputes", 0)),
                 json.optString("status", STATUS_ACTIVE),

@@ -108,7 +108,7 @@
             android:id="@+id/sheetTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Multimedia University - MMU Cyberjaya"
+            android:text="Nearby places"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -118,7 +118,7 @@
             android:id="@+id/sheetSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Campus map · obstacles shown in red"
+            android:text="Map · obstacles shown in red"
             android:textColor="#B0B0B0"
             android:textSize="13sp"
             android:layout_marginBottom="16dp" />

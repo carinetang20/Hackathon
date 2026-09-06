@@ -41,7 +41,7 @@ public class NotificationsActivity extends AppCompatActivity {
     private void loadSampleNotifications() {
         notifications.add(new NotificationItem(
                 "Obstacle still there",
-                "Another user confirmed the obstacle at Campus Library is still there.",
+                "Another user confirmed the obstacle at the Library is still there.",
                 "2h ago",
                 true
         ));

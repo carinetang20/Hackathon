@@ -3,7 +3,7 @@ package com.example.hackathon.utils;
 import com.google.android.gms.maps.model.LatLng;
 
 /**
- * Known MMU Cyberjaya campus pathway landmarks for scan guidance.
+ * Known area landmarks for scan guidance (demo locations).
  */
 public final class CampusLocator {
 
@@ -23,7 +23,7 @@ public final class CampusLocator {
 
     private static final Place[] PLACES = {
             new Place(
-                    "Campus Library",
+                    "Library",
                     "walkway toward the library entrance, watch for the ramp and stairs",
                     new LatLng(2.9209, 101.6550)
             ),
@@ -38,7 +38,7 @@ public final class CampusLocator {
                     new LatLng(2.9206, 101.6565)
             ),
             new Place(
-                    "MMU Garden",
+                    "Garden",
                     "garden pathway, uneven ground and plant obstacles possible",
                     new LatLng(2.9218, 101.6568)
             ),
@@ -49,7 +49,7 @@ public final class CampusLocator {
             ),
             new Place(
                     "Persiaran Newron",
-                    "campus road-edge sidewalk, listen before crossing",
+                    "road-edge sidewalk, listen before crossing",
                     new LatLng(2.9215, 101.6545)
             )
     };
@@ -79,27 +79,27 @@ public final class CampusLocator {
 
     public static String campusAreaDescription(Double lat, Double lng) {
         if (lat == null || lng == null) {
-            return "MMU Cyberjaya campus";
+            return "outdoors on a walkway";
         }
         if (!isOnCampus(lat, lng)) {
-            return "near campus area";
+            return "outdoors nearby";
         }
         Place nearest = nearestPlace(lat, lng);
         if (nearest != null) {
             return "near " + nearest.name;
         }
-        return "on MMU Cyberjaya campus";
+        return "outdoors on a walkway";
     }
 
     public static String pathwayHint(Double lat, Double lng) {
         if (lat == null || lng == null) {
-            return "outdoor campus walkway or stairs";
+            return "outdoor walkway or stairs";
         }
         Place nearest = nearestPlace(lat, lng);
         if (nearest != null) {
             return nearest.pathwayHint;
         }
-        return "outdoor campus walkway or stairs";
+        return "outdoor walkway or stairs";
     }
 
     private static double distanceMeters(double lat1, double lng1, double lat2, double lng2) {
