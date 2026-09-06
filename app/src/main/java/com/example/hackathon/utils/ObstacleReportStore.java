@@ -124,13 +124,15 @@ public class ObstacleReportStore {
 
     /**
      * Creates a new report. lat/lng are required now so route scoring can
-     * match this report against a walking path.
+     * match this report against a walking path. category is either
+     * AccessibilityReport.CATEGORY_OBSTACLE or CATEGORY_FACILITY.
      */
     public AccessibilityReport addReport(
             String locationName,
             double lat,
             double lng,
             String issueType,
+            String category,
             String description
     ) {
         Map<String, Object> data = new HashMap<>();
@@ -138,6 +140,7 @@ public class ObstacleReportStore {
         data.put("lat", lat);
         data.put("lng", lng);
         data.put("issueType", issueType);
+        data.put("category", category);
         data.put("description", description);
         data.put("timestamp", System.currentTimeMillis());
         data.put("stillThereCount", 0);
@@ -151,7 +154,7 @@ public class ObstacleReportStore {
         // we don't block on it here since the UI already shows a success toast.
 
         AccessibilityReport optimistic = new AccessibilityReport(
-                ref.getId(), locationName, lat, lng, issueType, description,
+                ref.getId(), locationName, lat, lng, issueType, category, description,
                 (Long) data.get("timestamp"), 0, 0, AccessibilityReport.STATUS_ACTIVE,
                 true, deviceId);
         return optimistic;
@@ -184,6 +187,7 @@ public class ObstacleReportStore {
         Long notThere = doc.getLong("notThereCount");
         Double lat = doc.getDouble("lat");
         Double lng = doc.getDouble("lng");
+        String category = doc.getString("category");
 
         return new AccessibilityReport(
                 doc.getId(),
@@ -191,6 +195,7 @@ public class ObstacleReportStore {
                 lat != null ? lat : 0,
                 lng != null ? lng : 0,
                 doc.getString("issueType"),
+                category != null ? category : AccessibilityReport.CATEGORY_OBSTACLE,
                 doc.getString("description"),
                 timestamp != null ? timestamp : 0,
                 stillThere != null ? stillThere.intValue() : 0,

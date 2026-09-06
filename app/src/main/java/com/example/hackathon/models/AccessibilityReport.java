@@ -17,11 +17,15 @@ public class AccessibilityReport {
     public static final String STATUS_CLEARED = "Cleared";
     public static final String STATUS_UNCERTAIN = "Uncertain";
 
+    public static final String CATEGORY_OBSTACLE = "obstacle";
+    public static final String CATEGORY_FACILITY = "facility";
+
     private String id;
     private String locationName;
     private double lat;
     private double lng;
     private String issueType;
+    private String category;
     private String description;
     private long timestamp;
     private int stillThereCount;
@@ -36,10 +40,11 @@ public class AccessibilityReport {
             double lat,
             double lng,
             String issueType,
+            String category,
             String description,
             long timestamp
     ) {
-        this(id, locationName, lat, lng, issueType, description, timestamp,
+        this(id, locationName, lat, lng, issueType, category, description, timestamp,
                 0, 0, STATUS_ACTIVE, false, null);
     }
 
@@ -49,6 +54,7 @@ public class AccessibilityReport {
             double lat,
             double lng,
             String issueType,
+            String category,
             String description,
             long timestamp,
             int stillThereCount,
@@ -62,6 +68,7 @@ public class AccessibilityReport {
         this.lat = lat;
         this.lng = lng;
         this.issueType = issueType;
+        this.category = category != null ? category : CATEGORY_OBSTACLE;
         this.description = description;
         this.timestamp = timestamp;
         this.stillThereCount = stillThereCount;
@@ -94,6 +101,18 @@ public class AccessibilityReport {
 
     public String getIssueType() {
         return issueType;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public boolean isFacility() {
+        return CATEGORY_FACILITY.equals(category);
+    }
+
+    public boolean isObstacle() {
+        return CATEGORY_OBSTACLE.equals(category);
     }
 
     public String getDescription() {
@@ -164,10 +183,14 @@ public class AccessibilityReport {
 
     /**
      * Rough penalty this report should apply to a route's accessibility
-     * score if it lies on the path. Mirrors the old Obstacle class's
-     * severity system, driven by issue type and current status.
+     * score if it lies on the path. Facility reports (ramps, elevators,
+     * tactile paving) never penalize a route — they're positive/informational
+     * markers, not obstacles.
      */
     public int penaltyPoints() {
+        if (isFacility()) {
+            return 0;
+        }
         if (STATUS_CLEARED.equals(status)) {
             return 0; // community confirmed it's gone — don't penalize routes for it
         }
@@ -233,6 +256,7 @@ public class AccessibilityReport {
         json.put("lat", lat);
         json.put("lng", lng);
         json.put("issueType", issueType);
+        json.put("category", category);
         json.put("description", description);
         json.put("timestamp", timestamp);
         json.put("stillThereCount", stillThereCount);
@@ -250,6 +274,7 @@ public class AccessibilityReport {
                 json.optDouble("lat", 0),
                 json.optDouble("lng", 0),
                 json.getString("issueType"),
+                json.optString("category", CATEGORY_OBSTACLE),
                 json.getString("description"),
                 json.getLong("timestamp"),
                 json.optInt("stillThereCount", json.optInt("confirmations", 0)),

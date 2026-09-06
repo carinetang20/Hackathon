@@ -71,7 +71,7 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:background="@android:color/transparent"
-                        android:hint="Search campus places or reports"
+                        android:hint="Search places or reports"
                         android:textColorHint="#9CA3AF"
                         android:textColor="#1A1A1A"
                         android:textSize="15sp"
@@ -187,9 +187,39 @@
         android:layout_height="wrap_content"
         android:layout_gravity="end|bottom"
         android:layout_marginEnd="20dp"
-        android:layout_marginBottom="220dp"
+        android:layout_marginBottom="320dp"
         android:contentDescription="My location"
         app:srcCompat="@android:drawable/ic_menu_mylocation"
+        app:backgroundTint="#FFFFFF"
+        app:tint="#1A1A1A"
+        app:fabSize="mini"
+        app:elevation="6dp" />
+
+    <!-- Zoom in FAB, stacked directly below the my-location FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/zoomInButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="262dp"
+        android:contentDescription="Zoom in"
+        app:srcCompat="@drawable/ic_zoom_in"
+        app:backgroundTint="#FFFFFF"
+        app:tint="#1A1A1A"
+        app:fabSize="mini"
+        app:elevation="6dp" />
+
+    <!-- Zoom out FAB, stacked directly below the zoom-in FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/zoomOutButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="204dp"
+        android:contentDescription="Zoom out"
+        app:srcCompat="@drawable/ic_zoom_out"
         app:backgroundTint="#FFFFFF"
         app:tint="#1A1A1A"
         app:fabSize="mini"
@@ -269,7 +299,7 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                android:text="Report obstruction"
+                android:text="Add Marker"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 app:cornerRadius="12dp"

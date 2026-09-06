@@ -6,17 +6,21 @@ import android.os.Bundle;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.example.hackathon.models.AccessibilityReport;
 import com.example.hackathon.utils.ObstacleReportStore;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class ReportActivity extends AppCompatActivity {
 
@@ -26,11 +30,40 @@ public class ReportActivity extends AppCompatActivity {
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 300;
 
+    private static final String[] OBSTACLE_TYPES = {
+            "Illegal Parking",
+            "Pothole",
+            "Construction",
+            "Overgrown Vegetation",
+            "Blocked Ramp",
+            "Blocked Tactile Path",
+            "Broken Crossing",
+            "Open Drain",
+            "Temporary Barrier",
+            "Debris / Obstacle",
+            "Other"
+    };
+
+    private static final String[] FACILITY_TYPES = {
+            "Ramp",
+            "Tactile Pavement",
+            "Elevator",
+            "Accessible Restroom",
+            "Accessible Parking",
+            "Handrail",
+            "Other Facility"
+    };
+
     private TextInputEditText locationInput;
     private TextInputEditText descriptionInput;
+    private TextInputLayout issueTypeLayout;
     private AutoCompleteTextView issueSpinner;
     private MaterialButton submitButton;
     private ImageButton backButton;
+    private MaterialButtonToggleGroup categoryToggle;
+    private TextView screenTitle;
+    private TextView screenSubtitle;
+    private TextView screenDescription;
 
     private FusedLocationProviderClient fusedLocationClient;
 
@@ -38,6 +71,9 @@ public class ReportActivity extends AppCompatActivity {
     // (tapped on the map) or fetched from GPS as a fallback.
     private Double reportLat;
     private Double reportLng;
+
+    // Which report category is currently selected in the toggle.
+    private String selectedCategory = AccessibilityReport.CATEGORY_OBSTACLE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,9 +83,14 @@ public class ReportActivity extends AppCompatActivity {
 
         locationInput = findViewById(R.id.locationInput);
         descriptionInput = findViewById(R.id.descriptionInput);
+        issueTypeLayout = findViewById(R.id.issueTypeLayout);
         issueSpinner = findViewById(R.id.issueSpinner);
         submitButton = findViewById(R.id.submitButton);
         backButton = findViewById(R.id.backButton);
+        categoryToggle = findViewById(R.id.categoryToggle);
+        screenTitle = findViewById(R.id.screenTitle);
+        screenSubtitle = findViewById(R.id.screenSubtitle);
+        screenDescription = findViewById(R.id.screenDescription);
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -61,27 +102,18 @@ public class ReportActivity extends AppCompatActivity {
             fetchCurrentLocationAsFallback();
         }
 
-        String[] obstacleTypes = {
-                "Illegal Parking",
-                "Pothole",
-                "Construction",
-                "Overgrown Vegetation",
-                "Blocked Ramp",
-                "Blocked Tactile Path",
-                "Broken Crossing",
-                "Open Drain",
-                "Temporary Barrier",
-                "Debris / Obstacle",
-                "Other"
-        };
+        applyCategory(AccessibilityReport.CATEGORY_OBSTACLE);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_dropdown_item_1line,
-                obstacleTypes
-        );
-
-        issueSpinner.setAdapter(adapter);
+        categoryToggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) {
+                return;
+            }
+            if (checkedId == R.id.facilityToggleButton) {
+                applyCategory(AccessibilityReport.CATEGORY_FACILITY);
+            } else {
+                applyCategory(AccessibilityReport.CATEGORY_OBSTACLE);
+            }
+        });
 
         backButton.setOnClickListener(v -> finish());
 
@@ -112,16 +144,42 @@ public class ReportActivity extends AppCompatActivity {
             }
 
             ObstacleReportStore.getInstance(this)
-                    .addReport(location, reportLat, reportLng, issueType, description);
+                    .addReport(location, reportLat, reportLng, issueType, selectedCategory, description);
 
-            Toast.makeText(
-                    ReportActivity.this,
-                    "Obstacle reported — thank you for helping the community!",
-                    Toast.LENGTH_LONG
-            ).show();
+            String thankYouMessage = AccessibilityReport.CATEGORY_FACILITY.equals(selectedCategory)
+                    ? "Facility reported — thank you for helping the community!"
+                    : "Obstacle reported — thank you for helping the community!";
+            Toast.makeText(ReportActivity.this, thankYouMessage, Toast.LENGTH_LONG).show();
 
             finish();
         });
+    }
+
+    /**
+     * Switches the dropdown options, hint text, and header copy between the
+     * obstacle-reporting and facility-reporting flows.
+     */
+    private void applyCategory(String category) {
+        selectedCategory = category;
+        boolean isFacility = AccessibilityReport.CATEGORY_FACILITY.equals(category);
+
+        String[] types = isFacility ? FACILITY_TYPES : OBSTACLE_TYPES;
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_dropdown_item_1line,
+                types
+        );
+        issueSpinner.setAdapter(adapter);
+        issueSpinner.setText("", false); // clear any previously selected value
+
+        issueTypeLayout.setHint(isFacility ? "Facility type" : "Obstacle type");
+        screenTitle.setText(isFacility ? "Report a Facility" : "Report an Obstacle");
+        screenSubtitle.setText(isFacility
+                ? "Community Facility Reporting"
+                : "Community Obstacle Reporting");
+        screenDescription.setText(isFacility
+                ? "Let other wheelchair and visually impaired users know about ramps, elevators, and accessible facilities nearby."
+                : "Warn other visually impaired users about barriers you encounter while walking.");
     }
 
     private void fetchCurrentLocationAsFallback() {

@@ -38,6 +38,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -78,6 +79,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private String selectedReportId;
 
+
     // Coordinates of whatever is currently shown in the bottom sheet, so
     // "Report obstruction" can attach a real location to the new report.
     private Double selectedLat;
@@ -90,9 +92,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private Marker selectedLocationMarker;
 
+    // Tracks the currently-drawn route so a new search replaces it instead
+    // of stacking multiple polylines/pins on top of each other.
+    private Polyline currentRoutePolyline;
+    private Marker currentRouteOriginMarker;
+    private Marker currentRouteDestinationMarker;
+    private final List<Marker> currentRouteObstacleMarkers = new ArrayList<>();
+
     // Set once the user taps "use my location" for the ROUTE origin specifically.
     private double[] routeOriginLocation;
     private boolean pendingRouteOriginFetch = false;
+
+    private boolean pendingInitialCameraMove = false;
 
     private interface GeocodeCallback {
         void onGeocoded(double lat, double lng);
@@ -217,10 +228,15 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         map.getUiSettings().setCompassEnabled(true);
         map.getUiSettings().setMapToolbarEnabled(false);
 
+        enableMyLocationIfPermitted();
+        showCampusAndObstacles();
+        centerCameraOnUserLocationOrCampus();
+
         map.setOnMapClickListener(latLng -> {
             selectedReportId = null;
             selectedLat = latLng.latitude;
             selectedLng = latLng.longitude;
+
 
             if (selectedLocationMarker != null) {
                 selectedLocationMarker.remove();
@@ -266,16 +282,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         });
 
-        enableMyLocationIfPermitted();
-        showCampusAndObstacles();
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
+        findViewById(R.id.zoomInButton).setOnClickListener(v ->
+                map.animateCamera(CameraUpdateFactory.zoomIn()));
+        findViewById(R.id.zoomOutButton).setOnClickListener(v ->
+                map.animateCamera(CameraUpdateFactory.zoomOut()));
 
-        selectedLat = CAMPUS_CENTER.latitude;
-        selectedLng = CAMPUS_CENTER.longitude;
-        showSheet(
-                "Multimedia University — MMU Cyberjaya",
-                "Live campus map · red pins are community obstacle reports"
-        );
     }
 
     @Override
@@ -289,14 +300,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private void showCampusAndObstacles() {
         map.clear();
         markerReportIds.clear();
-
-        for (CampusPlace place : campusPlaces) {
-            map.addMarker(new MarkerOptions()
-                    .position(place.position)
-                    .title(place.name)
-                    .snippet(place.category)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
-        }
 
         List<AccessibilityReport> reports =
                 ObstacleReportStore.getInstance(this).getActiveCommunityReports();
@@ -319,15 +322,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 fallbackIndex++;
             }
 
-            float hue = AccessibilityReport.STATUS_CONFIRMED.equals(report.getStatus())
-                    ? BitmapDescriptorFactory.HUE_ORANGE
-                    : BitmapDescriptorFactory.HUE_RED;
-
             Marker marker = map.addMarker(new MarkerOptions()
                     .position(position)
                     .title(report.getIssueType())
                     .snippet(report.getLocationName() + " · " + report.getStatus())
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
+                    .icon(BitmapDescriptorFactory.defaultMarker(
+                            report.isFacility()
+                                    ? BitmapDescriptorFactory.HUE_GREEN
+                                    : BitmapDescriptorFactory.HUE_ORANGE)));
 
             if (marker != null) {
                 markerReportIds.put(marker, report.getId());
@@ -446,6 +448,39 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
                     }
                 });
+    }
+
+    private void centerCameraOnUserLocationOrCampus() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+                if (location != null && map != null) {
+                    LatLng me = new LatLng(location.getLatitude(), location.getLongitude());
+                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(me, 16f));
+                    selectedLat = me.latitude;
+                    selectedLng = me.longitude;
+                } else if (map != null) {
+                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
+                    selectedLat = CAMPUS_CENTER.latitude;
+                    selectedLng = CAMPUS_CENTER.longitude;
+                }
+            }).addOnFailureListener(e -> {
+                if (map != null) {
+                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
+                }
+                selectedLat = CAMPUS_CENTER.latitude;
+                selectedLng = CAMPUS_CENTER.longitude;
+            });
+        } else {
+            // Permission dialog was just triggered by enableMyLocationIfPermitted().
+            // Fall back to campus center for now; we'll recenter once granted.
+            map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
+            selectedLat = CAMPUS_CENTER.latitude;
+            selectedLng = CAMPUS_CENTER.longitude;
+            pendingInitialCameraMove = true;
+        }
     }
 
     @Override
@@ -658,8 +693,23 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         if (map == null) {
             return;
         }
-        map.clear();
-        markerReportIds.clear();
+
+        // Clear only the PREVIOUS route's polyline/pins — leave campus
+        // places and all obstacle pins exactly as they are.
+        if (currentRoutePolyline != null) {
+            currentRoutePolyline.remove();
+        }
+        if (currentRouteOriginMarker != null) {
+            currentRouteOriginMarker.remove();
+        }
+        if (currentRouteDestinationMarker != null) {
+            currentRouteDestinationMarker.remove();
+        }
+        for (Marker marker : currentRouteObstacleMarkers) {
+            marker.remove();
+            markerReportIds.remove(marker);
+        }
+        currentRouteObstacleMarkers.clear();
 
         PolylineOptions polylineOptions = new PolylineOptions()
                 .color(Color.parseColor("#2A6DF4"))
@@ -671,27 +721,20 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             polylineOptions.add(latLng);
             boundsBuilder.include(latLng);
         }
-        map.addPolyline(polylineOptions);
+        currentRoutePolyline = map.addPolyline(polylineOptions);
 
-        map.addMarker(new MarkerOptions()
+        currentRouteOriginMarker = map.addMarker(new MarkerOptions()
                 .position(new LatLng(originLat, originLng))
                 .title("Start"));
 
-        map.addMarker(new MarkerOptions()
+        currentRouteDestinationMarker = map.addMarker(new MarkerOptions()
                 .position(new LatLng(destLat, destLng))
                 .title("Destination")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-        for (AccessibilityReport report : route.getReportsOnRoute()) {
-            Marker marker = map.addMarker(new MarkerOptions()
-                    .position(new LatLng(report.getLat(), report.getLng()))
-                    .title(report.getIssueType())
-                    .snippet(report.getStatus())
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
-            if (marker != null) {
-                markerReportIds.put(marker, report.getId());
-            }
-        }
+        // Obstacles already have pins from showCampusAndObstacles() — no
+        // need to re-add markers for the ones matched on this route, they're
+        // already visible on the map.
 
         map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120));
 
