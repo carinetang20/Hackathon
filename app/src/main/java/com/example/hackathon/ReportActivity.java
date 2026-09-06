@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
@@ -23,6 +24,7 @@ import androidx.core.content.FileProvider;
 import com.example.hackathon.models.AccessibilityReport;
 import com.example.hackathon.utils.ObstacleReportStore;
 import com.example.hackathon.utils.ReportTimeFormat;
+import com.example.hackathon.utils.SampleReportPhotos;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -43,7 +45,6 @@ public class ReportActivity extends AppCompatActivity {
     private ImageView photoPreview;
     private TextView photoPlaceholder;
     private TextView photoStatusText;
-    private TextView timestampHint;
 
     private Uri cameraCaptureUri;
     private Uri selectedPhotoUri;
@@ -55,6 +56,12 @@ public class ReportActivity extends AppCompatActivity {
                 } else {
                     Toast.makeText(this, "Camera permission is needed to take a photo", Toast.LENGTH_SHORT).show();
                 }
+            });
+
+    private final ActivityResultLauncher<String> storagePermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                seedGalleryPhotos();
+                openGalleryPicker();
             });
 
     private final ActivityResultLauncher<Uri> takePictureLauncher =
@@ -90,8 +97,9 @@ public class ReportActivity extends AppCompatActivity {
         photoPreview = findViewById(R.id.photoPreview);
         photoPlaceholder = findViewById(R.id.photoPlaceholder);
         photoStatusText = findViewById(R.id.photoStatusText);
-        timestampHint = findViewById(R.id.timestampHint);
-        // Timestamp is saved silently on submit — no extra hint text needed.
+
+        // Put sample photos into device gallery so Gallery → Photos can pick them
+        seedGalleryPhotos();
 
         String[] obstacleTypes = {
                 "Illegal Parking",
@@ -115,9 +123,36 @@ public class ReportActivity extends AppCompatActivity {
 
         backButton.setOnClickListener(v -> finish());
         takePhotoButton.setOnClickListener(v -> ensureCameraThenCapture());
-        choosePhotoButton.setOnClickListener(v -> pickImageLauncher.launch("image/*"));
+        choosePhotoButton.setOnClickListener(v -> onGalleryClicked());
 
         submitButton.setOnClickListener(v -> submitReport());
+    }
+
+    private void seedGalleryPhotos() {
+        // On Android 10+ MediaStore insert does not need storage permission.
+        // On older APIs, request WRITE_EXTERNAL_STORAGE once if needed.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+        }
+        SampleReportPhotos.ensureInGallery(this);
+    }
+
+    private void onGalleryClicked() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            return;
+        }
+        seedGalleryPhotos();
+        openGalleryPicker();
+    }
+
+    private void openGalleryPicker() {
+        pickImageLauncher.launch("image/*");
     }
 
     private void ensureCameraThenCapture() {
@@ -144,7 +179,6 @@ public class ReportActivity extends AppCompatActivity {
             );
             takePictureLauncher.launch(cameraCaptureUri);
         } catch (Exception e) {
-            // Fallback for devices without camera app
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             if (intent.resolveActivity(getPackageManager()) == null) {
                 Toast.makeText(this, "No camera app available — use Gallery instead", Toast.LENGTH_LONG).show();

@@ -7,6 +7,7 @@ import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.hackathon.utils.SampleReportPhotos;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 public class MainActivity extends AppCompatActivity {
@@ -29,6 +30,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
+        // Make sample report photos available in Gallery → Photos
+        SampleReportPhotos.ensureInGallery(this);
 
         notificationButton = findViewById(R.id.notificationButton);
         notificationButton.setOnClickListener(v ->
