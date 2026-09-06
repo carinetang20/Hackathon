@@ -20,6 +20,19 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.AutocompletePrediction;
+import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.net.FetchPlaceRequest;
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest;
+import com.google.android.libraries.places.api.net.PlacesClient;
+
+import java.util.Arrays;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -42,6 +55,7 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -78,6 +92,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private MaterialButton directionsButton;
 
     private String selectedReportId;
+
+    //route finding fields
+    private PlacesClient placesClient;
+    private AutocompleteSessionToken autocompleteSessionToken;
+    private ListView searchPredictionsList;
+    private List<AutocompletePrediction> currentPredictions = new ArrayList<>();
 
 
     // Coordinates of whatever is currently shown in the bottom sheet, so
@@ -133,6 +153,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         myLocationButton = findViewById(R.id.myLocationButton);
 
         directionsApiClient = new DirectionsApiClient(getGoogleMapsApiKey());
+
+        if (!Places.isInitialized()) {
+            Places.initialize(getApplicationContext(), getGoogleMapsApiKey());
+        }
+        placesClient = Places.createClient(this);
+        autocompleteSessionToken = AutocompleteSessionToken.newInstance();
+        searchPredictionsList = findViewById(R.id.searchPredictionsList);
+        searchPredictionsList.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < currentPredictions.size()) {
+                onPredictionSelected(currentPredictions.get(position));
+            }
+        });
 
         // Keep the report list fresh as Firestore syncs, since obstacle pins
         // and route scoring both depend on it.
@@ -193,7 +225,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             @Override
             public void afterTextChanged(Editable s) {
                 if (s != null && s.length() >= 2) {
-                    searchPlaces(s.toString());
+                    fetchPredictions(s.toString());
+                } else {
+                    hidePredictionsList();
                 }
             }
         });
@@ -392,7 +426,100 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         }
 
-        Toast.makeText(this, "No matching place on campus", Toast.LENGTH_SHORT).show();
+        // No local campus place or report matched — resolve any real-world
+        // location by name using Geocoder, same as the route origin/destination fields.
+        String originalQuery = query.trim();
+        geocodeAddress(originalQuery, new GeocodeCallback() {
+            @Override
+            public void onGeocoded(double lat, double lng) {
+                LatLng latLng = new LatLng(lat, lng);
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f));
+                selectedReportId = null;
+                selectedLat = lat;
+                selectedLng = lng;
+                showSheet(originalQuery, "Searched location");
+
+                if (selectedLocationMarker != null) {
+                    selectedLocationMarker.remove();
+                }
+                selectedLocationMarker = map.addMarker(new MarkerOptions()
+                        .position(latLng)
+                        .title(originalQuery));
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(MapActivity.this, "No matching place found", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void fetchPredictions(String query) {
+        FindAutocompletePredictionsRequest request = FindAutocompletePredictionsRequest.builder()
+                .setSessionToken(autocompleteSessionToken)
+                .setQuery(query)
+                .build();
+
+        placesClient.findAutocompletePredictions(request)
+                .addOnSuccessListener(response -> {
+                    currentPredictions = response.getAutocompletePredictions();
+                    showPredictionsList(currentPredictions);
+                })
+                .addOnFailureListener(exception -> hidePredictionsList());
+    }
+
+    private void showPredictionsList(List<AutocompletePrediction> predictions) {
+        if (predictions.isEmpty()) {
+            hidePredictionsList();
+            return;
+        }
+        List<String> descriptions = new ArrayList<>();
+        for (AutocompletePrediction prediction : predictions) {
+            descriptions.add(prediction.getFullText(null).toString());
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_list_item_1, descriptions);
+        searchPredictionsList.setAdapter(adapter);
+        searchPredictionsList.setVisibility(View.VISIBLE);
+    }
+
+    private void hidePredictionsList() {
+        searchPredictionsList.setVisibility(View.GONE);
+    }
+
+    private void onPredictionSelected(AutocompletePrediction prediction) {
+        hidePredictionsList();
+        searchInput.setText(prediction.getFullText(null).toString());
+        searchInput.clearFocus();
+
+        List<Place.Field> placeFields = Arrays.asList(
+                Place.Field.LAT_LNG, Place.Field.NAME, Place.Field.ADDRESS);
+        FetchPlaceRequest request = FetchPlaceRequest.newInstance(prediction.getPlaceId(), placeFields);
+
+        placesClient.fetchPlace(request).addOnSuccessListener(response -> {
+            Place place = response.getPlace();
+            LatLng latLng = place.getLatLng();
+            if (latLng != null && map != null) {
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f));
+                selectedReportId = null;
+                selectedLat = latLng.latitude;
+                selectedLng = latLng.longitude;
+                showSheet(
+                        place.getName() != null ? place.getName() : prediction.getFullText(null).toString(),
+                        place.getAddress() != null ? place.getAddress() : "Selected via Google search"
+                );
+
+                if (selectedLocationMarker != null) {
+                    selectedLocationMarker.remove();
+                }
+                selectedLocationMarker = map.addMarker(new MarkerOptions()
+                        .position(latLng)
+                        .title(place.getName()));
+            }
+            // Refresh the token after use — required by Places API billing rules.
+            autocompleteSessionToken = AutocompleteSessionToken.newInstance();
+        }).addOnFailureListener(exception ->
+                Toast.makeText(this, "Could not load place details", Toast.LENGTH_SHORT).show());
     }
 
     private void showSheet(String title, String subtitle) {
@@ -522,6 +649,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     // ================== Route-finding additions ==================
 
     private void showRoutePanel() {
+        hidePredictionsList();
         String prefillDestination = sheetTitle.getText() != null ? sheetTitle.getText().toString() : "";
         if (!TextUtils.isEmpty(prefillDestination)) {
             destinationInput.setText(prefillDestination);

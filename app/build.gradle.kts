@@ -78,6 +78,7 @@ dependencies {
     implementation("com.google.guava:guava:33.4.0-android")
 
     implementation(libs.play.services.location)
+    implementation("com.google.android.libraries.places:places:3.5.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
