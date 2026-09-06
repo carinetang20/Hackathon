@@ -11,62 +11,170 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Top search / back bar -->
+    <!-- Top bar: back button + campus search + two-field route panel -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="40dp"
-        android:paddingBottom="8dp"
+        android:orientation="vertical"
         android:elevation="8dp">
 
-        <ImageButton
-            android:id="@+id/backButton"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/notification_icon_bg"
-            android:src="@drawable/ic_back"
-            android:padding="10dp"
-            android:contentDescription="Back"
-            android:layout_marginEnd="10dp"
-            app:tint="#1A1A1A" />
-
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/search_bar_bg"
-            android:elevation="4dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="40dp"
+            android:paddingBottom="8dp">
 
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@android:drawable/ic_menu_search"
-                app:tint="#6B7280"
-                android:contentDescription="@null"
-                android:layout_marginEnd="8dp" />
+            <ImageButton
+                android:id="@+id/backButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/notification_icon_bg"
+                android:src="@drawable/ic_back"
+                android:padding="10dp"
+                android:contentDescription="Back"
+                android:layout_marginEnd="10dp"
+                app:tint="#1A1A1A" />
 
-            <EditText
-                android:id="@+id/searchInput"
+            <FrameLayout
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@android:color/transparent"
-                android:hint="Search location here"
-                android:textColorHint="#9CA3AF"
-                android:textColor="#1A1A1A"
-                android:textSize="15sp"
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:maxLines="1"
-                android:importantForAutofill="no" />
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <!-- Default: single campus/report search field -->
+                <LinearLayout
+                    android:id="@+id/searchPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/search_bar_bg"
+                    android:elevation="4dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@android:drawable/ic_menu_search"
+                        app:tint="#6B7280"
+                        android:contentDescription="@null"
+                        android:layout_marginEnd="8dp" />
+
+                    <EditText
+                        android:id="@+id/searchInput"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:hint="Search campus places or reports"
+                        android:textColorHint="#9CA3AF"
+                        android:textColor="#1A1A1A"
+                        android:textSize="15sp"
+                        android:imeOptions="actionSearch"
+                        android:inputType="text"
+                        android:maxLines="1"
+                        android:importantForAutofill="no" />
+                </LinearLayout>
+
+                <!-- Shown after "Directions" is tapped in the bottom sheet -->
+                <LinearLayout
+                    android:id="@+id/routePanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/search_bar_bg"
+                    android:elevation="4dp"
+                    android:padding="4dp"
+                    android:visibility="gone">
+
+                    <!-- Current location field + use-my-location icon -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="8dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_myplaces"
+                            app:tint="#6B7280"
+                            android:contentDescription="@null"
+                            android:layout_marginEnd="8dp" />
+
+                        <EditText
+                            android:id="@+id/currentLocationInput"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:background="@android:color/transparent"
+                            android:hint="Current location"
+                            android:textColorHint="#9CA3AF"
+                            android:textColor="#1A1A1A"
+                            android:textSize="15sp"
+                            android:inputType="text"
+                            android:maxLines="1"
+                            android:importantForAutofill="no" />
+
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E5E7EB"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="14dp" />
+
+                    <!-- Destination field + find-route search icon -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="8dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_mapmode"
+                            app:tint="#6B7280"
+                            android:contentDescription="@null"
+                            android:layout_marginEnd="8dp" />
+
+                        <EditText
+                            android:id="@+id/destinationInput"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:background="@android:color/transparent"
+                            android:hint="Destination"
+                            android:textColorHint="#9CA3AF"
+                            android:textColor="#1A1A1A"
+                            android:textSize="15sp"
+                            android:imeOptions="actionSearch"
+                            android:inputType="text"
+                            android:maxLines="1"
+                            android:importantForAutofill="no" />
+
+                        <ImageButton
+                            android:id="@+id/findRouteButton"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:background="@android:color/transparent"
+                            android:src="@android:drawable/ic_menu_search"
+                            app:tint="#6B7280"
+                            android:contentDescription="Show accessible route" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
         </LinearLayout>
     </LinearLayout>
 
@@ -113,6 +221,41 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:layout_marginBottom="4dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:id="@+id/sheetTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Multimedia University - MMU Cyberjaya"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/directionsButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Directions"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:textColor="#8AB4FF"
+                app:icon="@android:drawable/ic_menu_mapmode"
+                app:iconTint="#8AB4FF"
+                app:iconSize="16dp"
+                app:iconPadding="4dp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/sheetSubtitle"

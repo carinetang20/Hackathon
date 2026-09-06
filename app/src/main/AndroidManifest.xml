@@ -21,15 +21,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Hackathon">
 
-        <!--
-          Set MAPS_API_KEY in local.properties, e.g.:
-          MAPS_API_KEY=AIza...
-          Or replace the placeholder below with your Maps SDK key.
-        -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}" />
+            android:value="AIzaSyDz-avvXdHWe6PVGXQdMDLI_HRarnY6raI" />
 
+        <!-- Main screen -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -39,6 +35,7 @@
             </intent-filter>
         </activity>
 
+        <!-- Report screen -->
         <activity
             android:name=".ReportActivity"
             android:exported="false" />
