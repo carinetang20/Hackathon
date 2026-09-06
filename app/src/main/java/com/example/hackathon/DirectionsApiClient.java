@@ -112,16 +112,35 @@ public class DirectionsApiClient {
             JSONArray legs = routeObj.getJSONArray("legs");
             int totalDuration = 0;
             int totalDistance = 0;
+            List<RouteOption.Step> steps = new ArrayList<>();
             for (int j = 0; j < legs.length(); j++) {
                 JSONObject leg = legs.getJSONObject(j);
                 totalDuration += leg.getJSONObject("duration").getInt("value");
                 totalDistance += leg.getJSONObject("distance").getInt("value");
+
+                JSONArray stepArr = leg.optJSONArray("steps");
+                if (stepArr != null) {
+                    for (int s = 0; s < stepArr.length(); s++) {
+                        JSONObject step = stepArr.getJSONObject(s);
+                        String html = step.optString("html_instructions", "Continue");
+                        String plain = html.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+                        JSONObject start = step.getJSONObject("start_location");
+                        steps.add(new RouteOption.Step(
+                                plain,
+                                step.optString("maneuver", ""),
+                                step.getJSONObject("distance").getInt("value"),
+                                step.getJSONObject("duration").getInt("value"),
+                                start.getDouble("lat"),
+                                start.getDouble("lng")
+                        ));
+                    }
+                }
             }
 
             String encodedPolyline = routeObj.getJSONObject("overview_polyline").getString("points");
             List<double[]> points = decodePolyline(encodedPolyline);
 
-            result.add(new RouteOption(points, summary, totalDuration, totalDistance));
+            result.add(new RouteOption(points, summary, totalDuration, totalDistance, steps));
         }
         return result;
     }
