@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F0E8">
+    android:background="#FFFFFF">
 
-    <fragment
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
@@ -89,6 +89,7 @@
                     android:padding="4dp"
                     android:visibility="gone">
 
+                    <!-- Current location field + use-my-location icon -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
@@ -170,23 +171,74 @@
                 </LinearLayout>
             </FrameLayout>
         </LinearLayout>
+
+        <!-- Live search filter results under the search bar -->
+        <ListView
+            android:id="@+id/searchPredictionsList"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/search_bar_bg"
+            android:divider="#E5E7EB"
+            android:dividerHeight="1dp"
+            android:elevation="8dp"
+            android:visibility="gone" />
     </LinearLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/myLocationButton"
+    <!-- Map controls: sit above the bottom sheet and draw on top of it -->
+    <LinearLayout
+        android:id="@+id/mapControls"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|bottom"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="320dp"
-        android:contentDescription="My location"
-        app:srcCompat="@android:drawable/ic_menu_mylocation"
-        app:backgroundTint="#FFFFFF"
-        app:tint="#1A1A1A"
-        app:fabSize="mini"
-        app:elevation="6dp" />
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="28dp"
+        android:elevation="24dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
 
-    <!-- Google Maps–style pull-up sheet -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/myLocationButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:contentDescription="My location"
+            app:srcCompat="@android:drawable/ic_menu_mylocation"
+            app:backgroundTint="#FFFFFF"
+            app:tint="#1A1A1A"
+            app:fabSize="mini"
+            app:elevation="8dp"
+            app:borderWidth="0dp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/zoomInButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:contentDescription="Zoom in"
+            app:srcCompat="@drawable/ic_zoom_in"
+            app:backgroundTint="#FFFFFF"
+            app:tint="#1A1A1A"
+            app:fabSize="mini"
+            app:elevation="8dp"
+            app:borderWidth="0dp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/zoomOutButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="Zoom out"
+            app:srcCompat="@drawable/ic_zoom_out"
+            app:backgroundTint="#FFFFFF"
+            app:tint="#1A1A1A"
+            app:fabSize="mini"
+            app:elevation="8dp"
+            app:borderWidth="0dp" />
+    </LinearLayout>
+
+    <!-- Location / obstacle bottom sheet -->
     <LinearLayout
         android:id="@+id/locationSheet"
         android:layout_width="match_parent"
@@ -395,7 +447,7 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                android:text="Report obstruction"
+                android:text="Add Marker"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 app:cornerRadius="24dp"

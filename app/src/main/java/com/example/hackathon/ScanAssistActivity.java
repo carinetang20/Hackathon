@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -32,18 +31,19 @@ import com.google.mlkit.vision.label.ImageLabeling;
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 360 look-around with spoken guidance (Text-to-Speech).
+ * 360° look-around of the campus walkway with spoken scan guidance.
  */
 public class ScanAssistActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
     private static final String TAG = "ScanAssist";
+    private static final int PREVIEW_RES = R.drawable.campus_360;
+    private static final int SCAN_RES = R.drawable.campus_pathway_demo;
 
     private enum LookDirection { LEFT, CENTER, RIGHT, BEHIND }
 
@@ -56,24 +56,23 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
     private TextView guidanceText;
     private TextView detectedLabels;
     private TextView lookDirectionText;
-    private ImageButton backButton;
 
     private ExecutorService analyzeExecutor;
     private ImageLabeler labeler;
     private TextToSpeech tts;
-    private boolean ttsReady = false;
+    private boolean ttsReady;
     private String lastSpoken = "";
-    private String pendingSpeech = null;
+    private String pendingSpeech;
     private AudioManager audioManager;
 
     private final Matrix imageMatrix = new Matrix();
     private float scale = 1f;
-    private float maxTransX = 0f;
-    private float currentTransX = 0f;
-    private float lastTouchX = 0f;
-    private boolean panning = false;
-    private float bmpW = 0f;
-    private float bmpH = 0f;
+    private float maxTransX;
+    private float currentTransX;
+    private float lastTouchX;
+    private boolean panning;
+    private float bmpW;
+    private float bmpH;
     private LookDirection lookDirection = LookDirection.CENTER;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -92,7 +91,7 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         guidanceText = findViewById(R.id.guidanceText);
         detectedLabels = findViewById(R.id.detectedLabels);
         lookDirectionText = findViewById(R.id.lookDirectionText);
-        backButton = findViewById(R.id.backButton);
+        ImageButton backButton = findViewById(R.id.backButton);
 
         analyzeExecutor = Executors.newSingleThreadExecutor();
         labeler = ImageLabeling.getClient(
@@ -105,30 +104,22 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         ensureAudibleVolume();
         initTts();
 
-        int resId = getResources().getIdentifier("campus_360", "drawable", getPackageName());
-        if (resId == 0) {
-            resId = R.drawable.campus_pathway_demo;
-        }
-        campusPreviewImage.setImageResource(resId);
+        campusPreviewImage.setImageResource(PREVIEW_RES);
         setupLookAround();
 
         backButton.setOnClickListener(v -> finish());
-
         turnLeftButton.setOnClickListener(v -> {
             nudgeLook(+0.22f);
             speak("Turning left.");
         });
-
         turnRightButton.setOnClickListener(v -> {
             nudgeLook(-0.22f);
             speak("Turning right.");
         });
-
         scanButton.setOnClickListener(v -> {
-            speak("Scanning what you are facing on the walkway.");
-            scanCampusPathway();
+            speak("Scanning what you are facing.");
+            scanSurroundings();
         });
-
         repeatButton.setOnClickListener(v -> {
             if (!lastSpoken.isEmpty()) {
                 speak(lastSpoken);
@@ -139,7 +130,6 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
     }
 
     private void initTts() {
-        // Try Google TTS first, then default engine
         try {
             tts = new TextToSpeech(this, this, "com.google.android.tts");
         } catch (Exception e) {
@@ -196,16 +186,12 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
 
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inJustDecodeBounds = true;
-        int resId = getResources().getIdentifier("campus_360", "drawable", getPackageName());
-        if (resId == 0) {
-            resId = R.drawable.campus_pathway_demo;
-        }
-        BitmapFactory.decodeResource(getResources(), resId, opts);
+        BitmapFactory.decodeResource(getResources(), PREVIEW_RES, opts);
         bmpW = opts.outWidth;
         bmpH = opts.outHeight;
         if (bmpW <= 0 || bmpH <= 0) {
             campusPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            campusPreviewImage.setImageResource(R.drawable.campus_pathway_demo);
+            campusPreviewImage.setImageResource(SCAN_RES);
             return;
         }
 
@@ -213,8 +199,7 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         float scaleY = viewH / bmpH;
         float minScaleX = (viewW * 2.4f) / bmpW;
         scale = Math.max(scaleY, minScaleX);
-        float scaledW = bmpW * scale;
-        maxTransX = Math.max(0f, scaledW - viewW);
+        maxTransX = Math.max(0f, bmpW * scale - viewW);
         currentTransX = -maxTransX / 2f;
         applyMatrix();
     }
@@ -225,8 +210,7 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         }
         imageMatrix.reset();
         imageMatrix.postScale(scale, scale);
-        float scaledH = bmpH * scale;
-        float ty = (campusPreviewImage.getHeight() - scaledH) / 2f;
+        float ty = (campusPreviewImage.getHeight() - bmpH * scale) / 2f;
         imageMatrix.postTranslate(currentTransX, ty);
         campusPreviewImage.setImageMatrix(imageMatrix);
     }
@@ -249,7 +233,7 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
     private void nudgeLook(float fractionOfWidth) {
         if (maxTransX <= 0f) {
             campusPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            campusPreviewImage.setImageResource(R.drawable.campus_pathway_demo);
+            campusPreviewImage.setImageResource(SCAN_RES);
             return;
         }
         setTranslation(currentTransX + fractionOfWidth * campusPreviewImage.getWidth());
@@ -300,7 +284,9 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
                 if (status2 == TextToSpeech.SUCCESS) {
                     configureTtsAndSpeakWelcome();
                 } else {
-                    Toast.makeText(this, "Voice guidance unavailable — enable Text-to-Speech in device settings", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this,
+                            "Voice guidance unavailable — enable Text-to-Speech in device settings",
+                            Toast.LENGTH_LONG).show();
                 }
             });
             return;
@@ -313,12 +299,10 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
             return;
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            tts.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build());
-        }
+        tts.setAudioAttributes(new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build());
 
         int lang = tts.setLanguage(Locale.US);
         if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -331,7 +315,6 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         ttsReady = lang != TextToSpeech.LANG_MISSING_DATA && lang != TextToSpeech.LANG_NOT_SUPPORTED;
         tts.setSpeechRate(0.9f);
         tts.setPitch(1.0f);
-
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override
             public void onStart(String utteranceId) {
@@ -351,18 +334,18 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         });
 
         if (!ttsReady) {
-            Toast.makeText(this, "Install English Text-to-Speech data for voice guidance", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Install English Text-to-Speech data for voice guidance",
+                    Toast.LENGTH_LONG).show();
             return;
         }
 
         ensureAudibleVolume();
-
         if (pendingSpeech != null) {
             String queued = pendingSpeech;
             pendingSpeech = null;
             speakNow(queued);
         } else {
-            speakNow("Walkway ready. Drag to look around, or tap Turn left and Turn right. Then tap Scan.");
+            speakNow(getString(R.string.scan_welcome));
         }
     }
 
@@ -400,21 +383,17 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
     private void speakNow(String message) {
         ensureAudibleVolume();
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Bundle params = new Bundle();
-                params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC);
-                params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
-                int result = tts.speak(message, TextToSpeech.QUEUE_FLUSH, params, "dislocator_" + System.currentTimeMillis());
-                if (result == TextToSpeech.ERROR) {
-                    Toast.makeText(this, "Voice error — turn up media volume", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                HashMap<String, String> params = new HashMap<>();
-                params.put(TextToSpeech.Engine.KEY_PARAM_STREAM,
-                        String.valueOf(AudioManager.STREAM_MUSIC));
-                params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, "1.0");
-                params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "dislocator_guide");
-                tts.speak(message, TextToSpeech.QUEUE_FLUSH, params);
+            Bundle params = new Bundle();
+            params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC);
+            params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
+            int result = tts.speak(
+                    message,
+                    TextToSpeech.QUEUE_FLUSH,
+                    params,
+                    "dislocator_" + System.currentTimeMillis()
+            );
+            if (result == TextToSpeech.ERROR) {
+                Toast.makeText(this, "Voice error — turn up media volume", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Log.e(TAG, "TTS speak failed", e);
@@ -422,19 +401,15 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         }
     }
 
-    private void scanCampusPathway() {
+    private void scanSurroundings() {
         scanButton.setEnabled(false);
-        guidanceTitle.setText("Scanning pathway…");
+        guidanceTitle.setText(R.string.scan_scanning);
         guidanceText.setText(R.string.scan_listening);
 
         final LookDirection facing = lookDirection;
-
         analyzeExecutor.execute(() -> {
             try {
-                Bitmap bitmap = BitmapFactory.decodeResource(
-                        getResources(),
-                        R.drawable.campus_pathway_demo
-                );
+                Bitmap bitmap = BitmapFactory.decodeResource(getResources(), SCAN_RES);
                 if (bitmap == null) {
                     mainHandler.post(() -> applyDirectionalGuidance(facing, new ArrayList<>()));
                     return;
@@ -446,7 +421,7 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
                             for (ImageLabel label : labels) {
                                 mlNames.add(label.getText());
                             }
-                            final List<String> names = enrichForDirection(facing, mlNames);
+                            List<String> names = enrichForDirection(facing, mlNames);
                             mainHandler.post(() -> applyDirectionalGuidance(facing, names));
                         })
                         .addOnFailureListener(e ->
@@ -524,12 +499,11 @@ public class ScanAssistActivity extends AppCompatActivity implements TextToSpeec
         }
 
         NavigationGuidance.Result result = NavigationGuidance.build(labels, area, hint);
-        NavigationGuidance.Result directed = new NavigationGuidance.Result(
+        applyGuidance(new NavigationGuidance.Result(
                 turnCue + result.spoken,
                 result.summary,
                 result.hazardDetected
-        );
-        applyGuidance(directed, labels);
+        ), labels);
     }
 
     private void applyGuidance(NavigationGuidance.Result result, List<String> labels) {

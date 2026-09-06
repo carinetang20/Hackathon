@@ -64,9 +64,8 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation("com.google.firebase:firebase-firestore:26.6.0")
 
-    implementation("com.google.android.gms:play-services-maps:19.2.0")
-    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation(libs.play.services.maps)
+    implementation(libs.play.services.location)
 
     // Camera + on-device labeling for Scan Assist
     val cameraxVersion = "1.4.2"
@@ -76,8 +75,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.guava:guava:33.4.0-android")
-
-    implementation(libs.play.services.location)
+    implementation("com.google.android.libraries.places:places:3.5.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

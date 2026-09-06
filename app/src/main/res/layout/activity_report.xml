@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="12dp">
 
             <ImageButton
                 android:id="@+id/backButton"
@@ -33,10 +33,11 @@
                 app:tint="#1A1A1A" />
 
             <TextView
+                android:id="@+id/screenTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Report an obstacle"
+                android:text="Report an Obstacle"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:textColor="#1A1A1A"
@@ -44,13 +45,64 @@
                 android:layout_marginEnd="44dp" />
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/screenSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Community Obstacle Reporting"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#6B7280"
+            android:gravity="center"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/screenDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Warn other visually impaired users about barriers you encounter while walking."
+            android:textSize="14sp"
+            android:textColor="#6B7280"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/categoryToggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/obstacleToggleButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:checked="true"
+                android:text="Report Obstacle"
+                android:textAllCaps="false"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/facilityToggleButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="Report Facility"
+                android:textAllCaps="false"
+                android:textSize="13sp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="12dp"
             app:cardBackgroundColor="#FFFFFF"
-            android:layout_marginBottom="12dp">
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -61,11 +113,11 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:text="Photo"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
                     android:textColor="#1A1A1A"
-                    android:layout_marginBottom="10dp" />
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
 
                 <FrameLayout
                     android:layout_width="match_parent"
@@ -77,8 +129,8 @@
                         android:id="@+id/photoPreview"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
                         android:contentDescription="Obstacle photo preview"
+                        android:scaleType="centerCrop"
                         android:visibility="gone" />
 
                     <TextView
@@ -87,8 +139,8 @@
                         android:layout_height="match_parent"
                         android:gravity="center"
                         android:text="No photo yet"
-                        android:textSize="14sp"
-                        android:textColor="#9CA3AF" />
+                        android:textColor="#9CA3AF"
+                        android:textSize="14sp" />
                 </FrameLayout>
 
                 <LinearLayout
@@ -100,39 +152,39 @@
                         android:id="@+id/takePhotoButton"
                         android:layout_width="0dp"
                         android:layout_height="48dp"
+                        android:layout_marginEnd="6dp"
                         android:layout_weight="1"
+                        android:backgroundTint="#111111"
+                        android:contentDescription="Take obstacle photo with camera"
                         android:text="Take photo"
                         android:textAllCaps="false"
                         android:textSize="14sp"
-                        app:cornerRadius="12dp"
-                        android:backgroundTint="#111111"
-                        android:layout_marginEnd="6dp"
-                        android:contentDescription="Take obstacle photo with camera" />
+                        app:cornerRadius="12dp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/choosePhotoButton"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="0dp"
                         android:layout_height="48dp"
+                        android:layout_marginStart="6dp"
                         android:layout_weight="1"
+                        android:contentDescription="Upload obstacle picture from gallery"
                         android:text="Gallery"
                         android:textAllCaps="false"
-                        android:textSize="14sp"
                         android:textColor="#111111"
-                        app:strokeColor="#111111"
+                        android:textSize="14sp"
                         app:cornerRadius="12dp"
-                        android:layout_marginStart="6dp"
-                        android:contentDescription="Upload obstacle picture from gallery" />
+                        app:strokeColor="#111111" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/photoStatusText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text=""
-                    android:textSize="12sp"
-                    android:textColor="#059669"
                     android:layout_marginTop="8dp"
+                    android:text=""
+                    android:textColor="#059669"
+                    android:textSize="12sp"
                     android:visibility="gone" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -140,10 +192,10 @@
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="2dp"
+            android:layout_marginBottom="12dp"
             app:cardBackgroundColor="#FFFFFF"
-            android:layout_marginBottom="12dp">
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -152,52 +204,53 @@
                 android:padding="18dp">
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
                     android:hint="Location"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
                     app:boxCornerRadiusBottomEnd="12dp"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_marginBottom="14dp">
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/locationInput"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:contentDescription="Obstacle location" />
+                        android:contentDescription="Obstacle location"
+                        android:inputType="text" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/issueTypeLayout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Obstacle type"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                    android:layout_marginBottom="14dp">
+                    android:layout_marginBottom="14dp"
+                    android:hint="Obstacle type">
 
                     <AutoCompleteTextView
                         android:id="@+id/issueSpinner"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="none"
-                        android:contentDescription="Obstacle type" />
+                        android:contentDescription="Obstacle type"
+                        android:inputType="none" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Description"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    android:hint="Description">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/descriptionInput"
                         android:layout_width="match_parent"
                         android:layout_height="110dp"
+                        android:contentDescription="Obstacle description"
                         android:gravity="top"
-                        android:inputType="textMultiLine"
-                        android:contentDescription="Obstacle description" />
+                        android:inputType="textMultiLine" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
@@ -212,12 +265,12 @@
             android:id="@+id/submitButton"
             android:layout_width="match_parent"
             android:layout_height="54dp"
+            android:backgroundTint="#111111"
+            android:contentDescription="Submit obstacle report"
             android:text="Submit report"
             android:textAllCaps="false"
             android:textSize="16sp"
-            app:cornerRadius="14dp"
-            android:backgroundTint="#111111"
-            android:contentDescription="Submit obstacle report" />
+            app:cornerRadius="14dp" />
 
     </LinearLayout>
 </ScrollView>

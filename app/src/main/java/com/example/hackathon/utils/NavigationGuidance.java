@@ -67,7 +67,6 @@ public final class NavigationGuidance {
                 "room", "ceiling", "indoor", "sofa", "bed", "desk",
                 "carpet", "kitchen", "bedroom", "living room");
 
-        // Covered corridor still counts as outdoor pathway if walkway/building/pillars present
         boolean coveredWalkway = walkway || (pole && building) || containsAny(lower, "courtyard");
 
         String area = (campusArea == null || campusArea.isEmpty())

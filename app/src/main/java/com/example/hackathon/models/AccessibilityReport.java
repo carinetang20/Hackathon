@@ -6,6 +6,9 @@ import org.json.JSONObject;
 /**
  * A community obstacle / barrier report that helps warn
  * visually impaired users and can be verified over time.
+ *
+ * Now includes lat/lng so reports can be matched against route
+ * polylines for accessibility scoring, not just displayed by name.
  */
 public class AccessibilityReport {
 
@@ -14,9 +17,15 @@ public class AccessibilityReport {
     public static final String STATUS_CLEARED = "Cleared";
     public static final String STATUS_UNCERTAIN = "Uncertain";
 
+    public static final String CATEGORY_OBSTACLE = "obstacle";
+    public static final String CATEGORY_FACILITY = "facility";
+
     private String id;
     private String locationName;
+    private double lat;
+    private double lng;
     private String issueType;
+    private String category;
     private String description;
     private long timestamp;
     private long lastVerifiedAt;
@@ -25,21 +34,29 @@ public class AccessibilityReport {
     private int notThereCount;
     private String status;
     private boolean submittedByMe;
+    private String reporterId;
 
     public AccessibilityReport(
             String id,
             String locationName,
+            double lat,
+            double lng,
             String issueType,
+            String category,
             String description,
             long timestamp
     ) {
-        this(id, locationName, issueType, description, timestamp, 0, null, 0, 0, STATUS_ACTIVE, false);
+        this(id, locationName, lat, lng, issueType, category, description, timestamp,
+                0L, null, 0, 0, STATUS_ACTIVE, false, null);
     }
 
     public AccessibilityReport(
             String id,
             String locationName,
+            double lat,
+            double lng,
             String issueType,
+            String category,
             String description,
             long timestamp,
             long lastVerifiedAt,
@@ -47,11 +64,15 @@ public class AccessibilityReport {
             int stillThereCount,
             int notThereCount,
             String status,
-            boolean submittedByMe
+            boolean submittedByMe,
+            String reporterId
     ) {
         this.id = id;
         this.locationName = locationName;
+        this.lat = lat;
+        this.lng = lng;
         this.issueType = issueType;
+        this.category = category != null ? category : CATEGORY_OBSTACLE;
         this.description = description;
         this.timestamp = timestamp;
         this.lastVerifiedAt = lastVerifiedAt;
@@ -60,6 +81,7 @@ public class AccessibilityReport {
         this.notThereCount = notThereCount;
         this.status = status != null ? status : STATUS_ACTIVE;
         this.submittedByMe = submittedByMe;
+        this.reporterId = reporterId;
         refreshStatus();
     }
 
@@ -67,12 +89,36 @@ public class AccessibilityReport {
         return id;
     }
 
+    public void setId(String id) {
+        this.id = id;
+    }
+
     public String getLocationName() {
         return locationName;
     }
 
+    public double getLat() {
+        return lat;
+    }
+
+    public double getLng() {
+        return lng;
+    }
+
     public String getIssueType() {
         return issueType;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public boolean isFacility() {
+        return CATEGORY_FACILITY.equals(category);
+    }
+
+    public boolean isObstacle() {
+        return CATEGORY_OBSTACLE.equals(category);
     }
 
     public String getDescription() {
@@ -104,11 +150,13 @@ public class AccessibilityReport {
     }
 
     /** @deprecated Use {@link #getStillThereCount()} */
+    @Deprecated
     public int getConfirmations() {
         return stillThereCount;
     }
 
     /** @deprecated Use {@link #getNotThereCount()} */
+    @Deprecated
     public int getDisputes() {
         return notThereCount;
     }
@@ -125,6 +173,14 @@ public class AccessibilityReport {
         this.submittedByMe = submittedByMe;
     }
 
+    public String getReporterId() {
+        return reporterId;
+    }
+
+    public void setReporterId(String reporterId) {
+        this.reporterId = reporterId;
+    }
+
     public void markStillThere() {
         stillThereCount++;
         lastVerifiedAt = System.currentTimeMillis();
@@ -138,13 +194,62 @@ public class AccessibilityReport {
     }
 
     /** @deprecated Use {@link #markStillThere()} */
+    @Deprecated
     public void confirm() {
         markStillThere();
     }
 
     /** @deprecated Use {@link #markNotThere()} */
+    @Deprecated
     public void dispute() {
         markNotThere();
+    }
+
+    /**
+     * Rough penalty this report should apply to a route's accessibility
+     * score if it lies on the path. Facility reports (ramps, elevators,
+     * tactile paving) never penalize a route — they're positive/informational
+     * markers, not obstacles.
+     */
+    public int penaltyPoints() {
+        if (isFacility()) {
+            return 0;
+        }
+        if (STATUS_CLEARED.equals(status)) {
+            return 0; // community confirmed it's gone — don't penalize routes for it
+        }
+
+        int basePenalty;
+        switch (issueType == null ? "" : issueType) {
+            case "Blocked Ramp":
+            case "Blocked Tactile Path":
+                basePenalty = 40;
+                break;
+            case "Broken Crossing":
+            case "Open Drain":
+                basePenalty = 30;
+                break;
+            case "Construction":
+            case "Temporary Barrier":
+                basePenalty = 25;
+                break;
+            case "Illegal Parking":
+            case "Debris / Obstacle":
+            case "Overgrown Vegetation":
+                basePenalty = 15;
+                break;
+            case "Pothole":
+                basePenalty = 10;
+                break;
+            default:
+                basePenalty = 10;
+        }
+
+        // Uncertain reports (conflicting votes) count for less than confirmed ones.
+        if (STATUS_UNCERTAIN.equals(status)) {
+            return basePenalty / 2;
+        }
+        return basePenalty;
     }
 
     /**
@@ -172,7 +277,10 @@ public class AccessibilityReport {
         JSONObject json = new JSONObject();
         json.put("id", id);
         json.put("locationName", locationName);
+        json.put("lat", lat);
+        json.put("lng", lng);
         json.put("issueType", issueType);
+        json.put("category", category);
         json.put("description", description);
         json.put("timestamp", timestamp);
         json.put("lastVerifiedAt", lastVerifiedAt);
@@ -181,6 +289,7 @@ public class AccessibilityReport {
         json.put("notThereCount", notThereCount);
         json.put("status", status);
         json.put("submittedByMe", submittedByMe);
+        json.put("reporterId", reporterId);
         return json;
     }
 
@@ -192,7 +301,10 @@ public class AccessibilityReport {
         return new AccessibilityReport(
                 json.getString("id"),
                 json.getString("locationName"),
+                json.optDouble("lat", 0),
+                json.optDouble("lng", 0),
                 json.getString("issueType"),
+                json.optString("category", CATEGORY_OBSTACLE),
                 json.getString("description"),
                 json.getLong("timestamp"),
                 json.optLong("lastVerifiedAt", 0L),
@@ -200,7 +312,8 @@ public class AccessibilityReport {
                 json.optInt("stillThereCount", json.optInt("confirmations", 0)),
                 json.optInt("notThereCount", json.optInt("disputes", 0)),
                 json.optString("status", STATUS_ACTIVE),
-                json.optBoolean("submittedByMe", false)
+                json.optBoolean("submittedByMe", false),
+                json.optString("reporterId", null)
         );
     }
 }

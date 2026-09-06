@@ -1,9 +1,11 @@
 <resources>
     <string name="app_name">Dis\'locator</string>
-    <string name="scan_assist_title">360° pathway scan</string>
-    <string name="scan_assist_hint">Drag the screen to look around in 360°. Use Turn left / Turn right, then Scan for spoken directions about what you are facing.</string>
+    <string name="scan_assist_title">360° surroundings</string>
+    <string name="scan_assist_hint">Drag the screen to look around in 360°. Use Turn left / Turn right, then Scan for spoken guidance about what you are facing.</string>
     <string name="scan_button">Scan what I\'m facing</string>
     <string name="scan_listening">Checking this direction…</string>
-    <string name="home_scan_cta">Scan pathway</string>
+    <string name="scan_welcome">Surroundings ready. Drag to look around, or tap Turn left and Turn right. Then tap Scan.</string>
+    <string name="scan_scanning">Scanning surroundings…</string>
+    <string name="home_scan_cta">Scan surroundings</string>
     <string name="home_scan_subtitle">360° look-around with spoken guidance</string>
 </resources>

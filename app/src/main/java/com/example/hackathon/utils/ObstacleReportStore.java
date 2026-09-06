@@ -4,44 +4,49 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.example.hackathon.models.AccessibilityReport;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 /**
- * Local persistence for community obstacle reports.
- * Survives app restarts so "Still there" / "Not there" votes stick.
+ * Shared persistence for community obstacle reports, backed by Firestore
+ * so reports are visible across devices. Vote history stays on-device so
+ * each install can only confirm/dispute a report once.
  */
 public class ObstacleReportStore {
 
-    private static final String PREFS = "obstacle_reports";
-    private static final String KEY_REPORTS = "reports";
-    private static final String KEY_SEEDED = "seeded";
+    private static final String COLLECTION = "obstacle_reports";
+    private static final String VOTE_PREFS = "obstacle_report_votes";
     private static final String KEY_VOTED = "voted_report_ids";
+
+    public interface ReportsListener {
+        void onReportsChanged();
+    }
 
     private static ObstacleReportStore instance;
 
-    private final SharedPreferences prefs;
+    private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+    private final SharedPreferences votePrefs;
+    private final String deviceId;
     private final List<AccessibilityReport> reports = new ArrayList<>();
+    private final List<ReportsListener> listeners = new ArrayList<>();
 
     private ObstacleReportStore(Context context) {
-        prefs = context.getApplicationContext()
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        load();
-        if (!prefs.getBoolean(KEY_SEEDED, false) && reports.isEmpty()) {
-            seedSampleReports();
-            prefs.edit().putBoolean(KEY_SEEDED, true).apply();
-            save();
-        }
+        Context app = context.getApplicationContext();
+        deviceId = DeviceIdProvider.getDeviceId(app);
+        votePrefs = app.getSharedPreferences(VOTE_PREFS, Context.MODE_PRIVATE);
+        listenForChanges();
     }
 
     public static synchronized ObstacleReportStore getInstance(Context context) {
@@ -49,6 +54,35 @@ public class ObstacleReportStore {
             instance = new ObstacleReportStore(context);
         }
         return instance;
+    }
+
+    public void addListener(ReportsListener listener) {
+        listeners.add(listener);
+    }
+
+    public void removeListener(ReportsListener listener) {
+        listeners.remove(listener);
+    }
+
+    private void notifyListeners() {
+        for (ReportsListener listener : new ArrayList<>(listeners)) {
+            listener.onReportsChanged();
+        }
+    }
+
+    private void listenForChanges() {
+        firestore.collection(COLLECTION)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener((snapshot, error) -> {
+                    if (error != null || snapshot == null) {
+                        return;
+                    }
+                    reports.clear();
+                    for (QueryDocumentSnapshot doc : snapshot) {
+                        reports.add(fromDocument(doc));
+                    }
+                    notifyListeners();
+                });
     }
 
     public List<AccessibilityReport> getAllReports() {
@@ -91,23 +125,48 @@ public class ObstacleReportStore {
 
     public AccessibilityReport addReport(
             String locationName,
+            double lat,
+            double lng,
             String issueType,
+            String category,
             String description
     ) {
-        return addReport(locationName, issueType, description, null);
+        return addReport(locationName, lat, lng, issueType, category, description, null);
     }
 
     public AccessibilityReport addReport(
             String locationName,
+            double lat,
+            double lng,
             String issueType,
+            String category,
             String description,
             String photoPath
     ) {
         long now = System.currentTimeMillis();
-        AccessibilityReport report = new AccessibilityReport(
-                UUID.randomUUID().toString(),
+        Map<String, Object> data = new HashMap<>();
+        data.put("locationName", locationName);
+        data.put("lat", lat);
+        data.put("lng", lng);
+        data.put("issueType", issueType);
+        data.put("category", category != null ? category : AccessibilityReport.CATEGORY_OBSTACLE);
+        data.put("description", description);
+        data.put("timestamp", now);
+        data.put("lastVerifiedAt", 0L);
+        data.put("photoPath", photoPath != null ? photoPath : "");
+        data.put("stillThereCount", 0);
+        data.put("notThereCount", 0);
+        data.put("status", AccessibilityReport.STATUS_ACTIVE);
+        data.put("reporterId", deviceId);
+
+        DocumentReference ref = firestore.collection(COLLECTION).document();
+        AccessibilityReport optimistic = new AccessibilityReport(
+                ref.getId(),
                 locationName,
+                lat,
+                lng,
                 issueType,
+                category,
                 description,
                 now,
                 0L,
@@ -115,11 +174,16 @@ public class ObstacleReportStore {
                 0,
                 0,
                 AccessibilityReport.STATUS_ACTIVE,
-                true
+                true,
+                deviceId
         );
-        reports.add(0, report);
-        save();
-        return report;
+
+        // Show on map immediately — don't wait for the Firestore snapshot round-trip.
+        reports.add(0, optimistic);
+        notifyListeners();
+
+        ref.set(data);
+        return optimistic;
     }
 
     public boolean hasVoted(String reportId) {
@@ -127,106 +191,97 @@ public class ObstacleReportStore {
     }
 
     public void markStillThere(String id) {
-        AccessibilityReport report = getById(id);
-        if (report != null) {
-            report.markStillThere();
-            rememberVote(id);
-            save();
+        if (id == null) {
+            return;
         }
+        rememberVote(id);
+        AccessibilityReport report = getById(id);
+        int still = (report != null ? report.getStillThereCount() : 0) + 1;
+        int notThere = report != null ? report.getNotThereCount() : 0;
+        pushVoteUpdate(id, still, notThere);
     }
 
     public void markNotThere(String id) {
-        AccessibilityReport report = getById(id);
-        if (report != null) {
-            report.markNotThere();
-            rememberVote(id);
-            save();
+        if (id == null) {
+            return;
         }
+        rememberVote(id);
+        AccessibilityReport report = getById(id);
+        int still = report != null ? report.getStillThereCount() : 0;
+        int notThere = (report != null ? report.getNotThereCount() : 0) + 1;
+        pushVoteUpdate(id, still, notThere);
+    }
+
+    private void pushVoteUpdate(String id, int stillThereCount, int notThereCount) {
+        String status = deriveStatus(stillThereCount, notThereCount);
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("stillThereCount", stillThereCount);
+        updates.put("notThereCount", notThereCount);
+        updates.put("lastVerifiedAt", System.currentTimeMillis());
+        updates.put("status", status);
+        firestore.collection(COLLECTION).document(id).update(updates);
+    }
+
+    private static String deriveStatus(int stillThereCount, int notThereCount) {
+        if (notThereCount >= 2 && notThereCount > stillThereCount) {
+            return AccessibilityReport.STATUS_CLEARED;
+        }
+        if (stillThereCount >= 2 && stillThereCount > notThereCount) {
+            return AccessibilityReport.STATUS_CONFIRMED;
+        }
+        if (stillThereCount > 0 && notThereCount > 0) {
+            return AccessibilityReport.STATUS_UNCERTAIN;
+        }
+        if (stillThereCount > 0) {
+            return AccessibilityReport.STATUS_CONFIRMED;
+        }
+        return AccessibilityReport.STATUS_ACTIVE;
     }
 
     private void rememberVote(String id) {
         Set<String> voted = new HashSet<>(getVotedIds());
         voted.add(id);
-        prefs.edit().putStringSet(KEY_VOTED, voted).apply();
+        votePrefs.edit().putStringSet(KEY_VOTED, voted).apply();
     }
 
     private Set<String> getVotedIds() {
-        Set<String> stored = prefs.getStringSet(KEY_VOTED, null);
+        Set<String> stored = votePrefs.getStringSet(KEY_VOTED, null);
         if (stored == null) {
             return new HashSet<>();
         }
         return new HashSet<>(stored);
     }
 
-    private void seedSampleReports() {
-        long now = System.currentTimeMillis();
-        reports.add(new AccessibilityReport(
-                "seed-1",
-                "Library",
-                "Blocked Ramp",
-                "Construction materials are blocking the wheelchair ramp entrance.",
-                now - 3600_000L,
-                now - 1800_000L,
-                null,
-                3,
-                0,
-                AccessibilityReport.STATUS_CONFIRMED,
-                false
-        ));
-        reports.add(new AccessibilityReport(
-                "seed-2",
-                "Persiaran Newron",
-                "Broken Crossing",
-                "The pedestrian crossing signal is not working.",
-                now - 7200_000L,
-                now - 5400_000L,
-                null,
-                2,
-                1,
-                AccessibilityReport.STATUS_UNCERTAIN,
-                false
-        ));
-        reports.add(new AccessibilityReport(
-                "seed-3",
-                "Institute for Postgraduate Studies",
-                "Blocked Tactile Path",
-                "Tactile paving is covered by parked bicycles.",
-                now - 10_800_000L,
-                now - 9000_000L,
-                null,
-                5,
-                0,
-                AccessibilityReport.STATUS_CONFIRMED,
-                false
-        ));
-    }
+    private AccessibilityReport fromDocument(DocumentSnapshot doc) {
+        String reporterId = doc.getString("reporterId");
+        Long timestamp = doc.getLong("timestamp");
+        Long lastVerifiedAt = doc.getLong("lastVerifiedAt");
+        Long stillThere = doc.getLong("stillThereCount");
+        Long notThere = doc.getLong("notThereCount");
+        Double lat = doc.getDouble("lat");
+        Double lng = doc.getDouble("lng");
+        String category = doc.getString("category");
+        String photo = doc.getString("photoPath");
+        if (photo != null && photo.isEmpty()) {
+            photo = null;
+        }
 
-    private void load() {
-        reports.clear();
-        String raw = prefs.getString(KEY_REPORTS, null);
-        if (raw == null || raw.isEmpty()) {
-            return;
-        }
-        try {
-            JSONArray array = new JSONArray(raw);
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject obj = array.getJSONObject(i);
-                reports.add(AccessibilityReport.fromJson(obj));
-            }
-        } catch (JSONException ignored) {
-            reports.clear();
-        }
-    }
-
-    private void save() {
-        JSONArray array = new JSONArray();
-        try {
-            for (AccessibilityReport report : reports) {
-                array.put(report.toJson());
-            }
-            prefs.edit().putString(KEY_REPORTS, array.toString()).apply();
-        } catch (JSONException ignored) {
-            // skip failed serialize
-        }
+        return new AccessibilityReport(
+                doc.getId(),
+                doc.getString("locationName"),
+                lat != null ? lat : 0,
+                lng != null ? lng : 0,
+                doc.getString("issueType"),
+                category != null ? category : AccessibilityReport.CATEGORY_OBSTACLE,
+                doc.getString("description"),
+                timestamp != null ? timestamp : 0,
+                lastVerifiedAt != null ? lastVerifiedAt : 0,
+                photo,
+                stillThere != null ? stillThere.intValue() : 0,
+                notThere != null ? notThere.intValue() : 0,
+                doc.getString("status"),
+                deviceId.equals(reporterId),
+                reporterId
+        );
     }
 }

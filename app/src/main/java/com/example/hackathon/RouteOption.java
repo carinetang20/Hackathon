@@ -1,5 +1,7 @@
 package com.example.hackathon;
 
+import com.example.hackathon.models.AccessibilityReport;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +43,7 @@ public class RouteOption {
     private final int distanceMeters;
     private final List<Step> steps;
 
-    private final List<Obstacle> obstaclesOnRoute = new ArrayList<>();
+    private final List<AccessibilityReport> reportsOnRoute = new ArrayList<>();
     private int accessibilityScore = 100;
 
     public RouteOption(List<double[]> points, String summary, int durationSeconds, int distanceMeters) {
@@ -82,12 +84,12 @@ public class RouteOption {
         return steps;
     }
 
-    public List<Obstacle> getObstaclesOnRoute() {
-        return obstaclesOnRoute;
+    public List<AccessibilityReport> getReportsOnRoute() {
+        return reportsOnRoute;
     }
 
-    public void addObstacle(Obstacle obstacle) {
-        obstaclesOnRoute.add(obstacle);
+    public void addReport(AccessibilityReport report) {
+        reportsOnRoute.add(report);
     }
 
     public int getAccessibilityScore() {
@@ -98,9 +100,10 @@ public class RouteOption {
         this.accessibilityScore = accessibilityScore;
     }
 
+    /** A route "blocks" wheelchair access if any matched report carries a severe penalty. */
     public boolean hasBlocker() {
-        for (Obstacle o : obstaclesOnRoute) {
-            if (Obstacle.SEVERITY_BLOCKER.equals(o.getSeverity())) {
+        for (AccessibilityReport report : reportsOnRoute) {
+            if (report.penaltyPoints() >= 40) {
                 return true;
             }
         }

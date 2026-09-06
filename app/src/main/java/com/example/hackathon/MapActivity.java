@@ -14,14 +14,23 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.BaseAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+
+
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,13 +38,16 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.hackathon.models.AccessibilityReport;
+import com.example.hackathon.utils.GeoUtils;
 import com.example.hackathon.utils.ObstacleReportStore;
 import com.example.hackathon.utils.ReportTimeFormat;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.OnMapsSdkInitializedCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
@@ -48,7 +60,14 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -59,13 +78,17 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MapActivity extends AppCompatActivity implements OnMapReadyCallback {
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class MapActivity extends AppCompatActivity
+        implements OnMapReadyCallback, OnMapsSdkInitializedCallback,
+        ObstacleReportStore.ReportsListener {
 
     private static final int REQUEST_LOCATION = 1001;
     private static final LatLng CAMPUS_CENTER = new LatLng(2.9213, 101.6559);
     /** Alert when an on-route obstacle is about ~1 min walk ahead (~80 m). */
     private static final double OBSTACLE_ALERT_METERS = 80.0;
-    private static final double OBSTACLE_ON_ROUTE_METERS = 30.0;
 
     private GoogleMap map;
     private final Map<Marker, String> markerReportIds = new HashMap<>();
@@ -74,6 +97,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private FusedLocationProviderClient fusedLocationClient;
 
     private EditText searchInput;
+    private ListView searchPredictionsList;
+    private final List<SearchSuggestion> searchSuggestions = new ArrayList<>();
+    private SearchSuggestionAdapter searchSuggestionAdapter;
     private LinearLayout locationSheet;
     private TextView sheetTitle;
     private TextView sheetSubtitle;
@@ -87,6 +113,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private MaterialButton viewReportsButton;
     private MaterialButton startDirectionsButton;
     private FloatingActionButton myLocationButton;
+    private View mapControls;
 
     private EditText currentLocationInput;
     private EditText destinationInput;
@@ -120,9 +147,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private Polyline navigationPolyline;
     private double navDestLat;
     private double navDestLng;
-    private final List<Obstacle> journeyObstacles = new ArrayList<>();
+    private final List<AccessibilityReport> journeyObstacles = new ArrayList<>();
     private final Set<String> dismissedObstacleAlerts = new HashSet<>();
-    private Obstacle pendingObstacleAlert;
+    private AccessibilityReport pendingObstacleAlert;
     private final Handler navigationHandler = new Handler(Looper.getMainLooper());
     private final Runnable navigationTick = new Runnable() {
         @Override
@@ -137,20 +164,30 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
     };
 
-
+    // Coordinates of whatever is currently shown in the bottom sheet, so
+    // "Report obstruction" can attach a real location to the new report.
+    private Double selectedLat;
+    private Double selectedLng;
 
     // --- Route-finding additions ---
     private DirectionsApiClient directionsApiClient;
-    private FirestoreAccessibilityRepository repository;
     private final RouteAccessibilityAnalyzer analyzer = new RouteAccessibilityAnalyzer();
     private final ExecutorService geocodeExecutor = Executors.newSingleThreadExecutor();
 
     private Marker selectedLocationMarker;
 
+    // Tracks the currently-drawn route so a new search replaces it instead
+    // of stacking multiple polylines/pins on top of each other.
+    private Polyline currentRoutePolyline;
+    private Marker currentRouteOriginMarker;
+    private Marker currentRouteDestinationMarker;
+
     // Set once the user taps "use my location" for the ROUTE origin specifically.
     // Kept separate from the general map-centering behavior of myLocationButton.
     private double[] routeOriginLocation;
     private boolean pendingRouteOriginFetch = false;
+
+    private boolean pendingInitialCameraMove = false;
 
     private interface GeocodeCallback {
         void onGeocoded(double lat, double lng);
@@ -172,6 +209,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         ImageButton backButton = findViewById(R.id.backButton);
         ImageButton findRouteButton = findViewById(R.id.findRouteButton);
         searchInput = findViewById(R.id.searchInput);
+        searchPredictionsList = findViewById(R.id.searchPredictionsList);
+        searchSuggestionAdapter = new SearchSuggestionAdapter();
+        searchPredictionsList.setAdapter(searchSuggestionAdapter);
+        searchPredictionsList.setOnItemClickListener((parent, view, position, id) -> {
+            if (position >= 0 && position < searchSuggestions.size()) {
+                selectSearchSuggestion(searchSuggestions.get(position));
+            }
+        });
         locationSheet = findViewById(R.id.locationSheet);
         sheetTitle = findViewById(R.id.sheetTitle);
         sheetSubtitle = findViewById(R.id.sheetSubtitle);
@@ -185,6 +230,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         viewReportsButton = findViewById(R.id.viewReportsButton);
         startDirectionsButton = findViewById(R.id.startDirectionsButton);
         myLocationButton = findViewById(R.id.myLocationButton);
+        mapControls = findViewById(R.id.mapControls);
 
         navigationOverlay = findViewById(R.id.navigationOverlay);
         navTurnIcon = findViewById(R.id.navTurnIcon);
@@ -199,10 +245,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         obstacleKeepRouteButton = findViewById(R.id.obstacleKeepRouteButton);
         obstacleAvoidButton = findViewById(R.id.obstacleAvoidButton);
 
-        directionsApiClient = new DirectionsApiClient(getGoogleMapsApiKey());
-        repository = new FirestoreAccessibilityRepository();
+        directionsApiClient = new DirectionsApiClient(
+                getGoogleMapsApiKey() != null ? getGoogleMapsApiKey() : "");
 
         seedCampusPlaces();
+        ObstacleReportStore.getInstance(this).addListener(this);
 
         backButton.setOnClickListener(v -> {
             if (navigating) {
@@ -214,8 +261,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         });
 
-        reportObstacleButton.setOnClickListener(v ->
-                startActivity(new Intent(this, ReportActivity.class)));
+        reportObstacleButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ReportActivity.class);
+            if (selectedLat != null && selectedLng != null) {
+                intent.putExtra(ReportActivity.EXTRA_LAT, selectedLat);
+                intent.putExtra(ReportActivity.EXTRA_LNG, selectedLng);
+            }
+            startActivity(intent);
+        });
 
         viewReportsButton.setOnClickListener(v -> {
             if (selectedReportId != null) {
@@ -234,9 +287,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         searchInput.setOnEditorActionListener((v, actionId, event) -> {
             boolean isSearch = actionId == EditorInfo.IME_ACTION_SEARCH
-                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER);
+                    || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    && event.getAction() == KeyEvent.ACTION_DOWN);
             if (isSearch) {
-                searchPlaces(searchInput.getText().toString());
+                commitSearch(searchInput.getText() != null ? searchInput.getText().toString() : "");
                 return true;
             }
             return false;
@@ -251,9 +305,19 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
             @Override
             public void afterTextChanged(Editable s) {
-                if (s != null && s.length() >= 2) {
-                    searchPlaces(s.toString());
+                String query = s != null ? s.toString() : "";
+                if (query.trim().length() >= 1) {
+                    updateSearchSuggestions(query);
+                } else {
+                    hideSearchSuggestions();
                 }
+            }
+        });
+
+        searchInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && searchInput.getText() != null
+                    && searchInput.getText().toString().trim().length() >= 1) {
+                updateSearchSuggestions(searchInput.getText().toString());
             }
         });
 
@@ -276,20 +340,44 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 (SupportMapFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.map);
 
+        // Legacy renderer avoids blank-tile maps on many emulators / devices.
+        MapsInitializer.initialize(getApplicationContext(), MapsInitializer.Renderer.LEGACY, this);
+
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
         }
     }
 
     @Override
+    public void onMapsSdkInitialized(@NonNull MapsInitializer.Renderer renderer) {
+        // No-op: LEGACY is requested above; callback confirms init completed.
+    }
+
+    @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         map = googleMap;
+        map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
         map.getUiSettings().setZoomControlsEnabled(false);
         map.getUiSettings().setCompassEnabled(true);
         map.getUiSettings().setMapToolbarEnabled(false);
+        map.getUiSettings().setAllGesturesEnabled(true);
+
+        // Always show campus first so tiles / pins appear immediately.
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
+        selectedLat = CAMPUS_CENTER.latitude;
+        selectedLng = CAMPUS_CENTER.longitude;
+        selectedDestination = CAMPUS_CENTER;
+
+        enableMyLocationIfPermitted();
+        showCampusAndObstacles();
+        centerCameraOnUserLocationOrCampus();
 
         map.setOnMapClickListener(latLng -> {
+            hideSearchSuggestions();
             selectedReportId = null;
+            selectedLat = latLng.latitude;
+            selectedLng = latLng.longitude;
+
             selectedDestination = latLng;
 
             if (selectedLocationMarker != null) {
@@ -310,6 +398,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         map.setOnMarkerClickListener(marker -> {
             String reportId = markerReportIds.get(marker);
             selectedReportId = reportId;
+            selectedLat = marker.getPosition().latitude;
+            selectedLng = marker.getPosition().longitude;
+
             selectedDestination = marker.getPosition();
             if (reportId != null) {
                 AccessibilityReport report = ObstacleReportStore.getInstance(this).getById(reportId);
@@ -342,66 +433,26 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         });
 
-        enableMyLocationIfPermitted();
-        showCampusAndObstacles();
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
+        findViewById(R.id.zoomInButton).setOnClickListener(v ->
+                map.animateCamera(CameraUpdateFactory.zoomIn()));
+        findViewById(R.id.zoomOutButton).setOnClickListener(v ->
+                map.animateCamera(CameraUpdateFactory.zoomOut()));
 
         showPlaceSheet(
                 "Nearby places",
-                "Red pins are community obstacle reports",
+                "Orange = obstacles · Green = facilities",
                 CAMPUS_CENTER,
                 R.drawable.campus_pathway_demo
         );
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (map != null) {
-            showCampusAndObstacles();
-        }
-    }
-
-    private void showCampusAndObstacles() {
-        map.clear();
-        markerReportIds.clear();
-
-        for (CampusPlace place : campusPlaces) {
-            map.addMarker(new MarkerOptions()
-                    .position(place.position)
-                    .title(place.name)
-                    .snippet(place.category)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
-        }
-
-        List<AccessibilityReport> reports =
-                ObstacleReportStore.getInstance(this).getActiveCommunityReports();
-
-        int index = 0;
-        for (AccessibilityReport report : reports) {
-            double latOffset = ((index % 3) - 1) * 0.0009;
-            double lngOffset = ((index / 3) % 3 - 1) * 0.0009;
-            LatLng position = new LatLng(
-                    CAMPUS_CENTER.latitude + latOffset,
-                    CAMPUS_CENTER.longitude + lngOffset
-            );
-
-            float hue = AccessibilityReport.STATUS_CONFIRMED.equals(report.getStatus())
-                    ? BitmapDescriptorFactory.HUE_ORANGE
-                    : BitmapDescriptorFactory.HUE_RED;
-
-            Marker marker = map.addMarker(new MarkerOptions()
-                    .position(position)
-                    .title(report.getIssueType())
-                    .snippet(ReportTimeFormat.postedBanner(report.getTimestamp())
-                            + " · " + report.getLocationName())
-                    .icon(BitmapDescriptorFactory.defaultMarker(hue)));
-
-            if (marker != null) {
-                markerReportIds.put(marker, report.getId());
+    public void onReportsChanged() {
+        runOnUiThread(() -> {
+            if (map != null && !navigating) {
+                showCampusAndObstacles();
             }
-            index++;
-        }
+        });
     }
 
     private void seedCampusPlaces() {
@@ -414,54 +465,268 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 "STAD Building", "Faculty",
                 new LatLng(2.9206, 101.6565)));
         campusPlaces.add(new CampusPlace(
+                "Faculty of Computing & Informatics", "Faculty",
+                new LatLng(2.9208, 101.6562)));
+        campusPlaces.add(new CampusPlace(
+                "Faculty of Engineering", "Faculty",
+                new LatLng(2.9204, 101.6555)));
+        campusPlaces.add(new CampusPlace(
                 "Garden", "Landmark",
                 new LatLng(2.9218, 101.6568)));
         campusPlaces.add(new CampusPlace(
                 "Library", "Facility",
                 new LatLng(2.9209, 101.6550)));
+        campusPlaces.add(new CampusPlace(
+                "Persiaran Newron", "Road",
+                new LatLng(2.9215, 101.6562)));
+        campusPlaces.add(new CampusPlace(
+                "Institute for Postgraduate Studies", "Faculty",
+                new LatLng(2.9210, 101.6569)));
+        campusPlaces.add(new CampusPlace(
+                "Student Center", "Facility",
+                new LatLng(2.9216, 101.6554)));
+        campusPlaces.add(new CampusPlace(
+                "Main Gate", "Entrance",
+                new LatLng(2.9225, 101.6548)));
+        campusPlaces.add(new CampusPlace(
+                "Sports Complex", "Facility",
+                new LatLng(2.9198, 101.6558)));
+        campusPlaces.add(new CampusPlace(
+                "Cafeteria", "Food",
+                new LatLng(2.9212, 101.6556)));
+        campusPlaces.add(new CampusPlace(
+                "Admin Building", "Facility",
+                new LatLng(2.9219, 101.6551)));
     }
 
-    private void searchPlaces(String query) {
-        if (map == null || query == null) {
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh pins when returning, but never wipe an active navigation route.
+        if (map != null && !navigating) {
+            showCampusAndObstacles();
+        }
+    }
+
+    private void showCampusAndObstacles() {
+        if (map == null) {
             return;
         }
-        String q = query.trim().toLowerCase(Locale.US);
+        map.clear();
+        markerReportIds.clear();
+        selectedLocationMarker = null;
+
+        for (CampusPlace place : campusPlaces) {
+            map.addMarker(new MarkerOptions()
+                    .position(place.position)
+                    .title(place.name)
+                    .snippet(place.category)
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+        }
+
+        List<AccessibilityReport> reports =
+                ObstacleReportStore.getInstance(this).getActiveCommunityReports();
+
+        int fallbackIndex = 0;
+        for (AccessibilityReport report : reports) {
+            LatLng position;
+            if (report.getLat() != 0 || report.getLng() != 0) {
+                position = new LatLng(report.getLat(), report.getLng());
+            } else {
+                double latOffset = ((fallbackIndex % 3) - 1) * 0.0009;
+                double lngOffset = ((fallbackIndex / 3) % 3 - 1) * 0.0009;
+                position = new LatLng(
+                        CAMPUS_CENTER.latitude + latOffset,
+                        CAMPUS_CENTER.longitude + lngOffset
+                );
+                fallbackIndex++;
+            }
+
+            float hue = report.isFacility()
+                    ? BitmapDescriptorFactory.HUE_GREEN
+                    : BitmapDescriptorFactory.HUE_ORANGE;
+
+            Marker marker = map.addMarker(new MarkerOptions()
+                    .position(position)
+                    .title(report.getIssueType())
+                    .snippet((report.isFacility() ? "Facility" : "Obstacle")
+                            + " · " + report.getLocationName()
+                            + " · " + ReportTimeFormat.postedBanner(report.getTimestamp()))
+                    .icon(BitmapDescriptorFactory.defaultMarker(hue)));
+
+            if (marker != null) {
+                markerReportIds.put(marker, report.getId());
+            }
+        }
+    }
+
+
+
+    private void updateSearchSuggestions(String query) {
+        if (searchPredictionsList == null) {
+            return;
+        }
+        List<SearchSuggestion> matches = filterSuggestions(query);
+        searchSuggestions.clear();
+        searchSuggestions.addAll(matches);
+        searchSuggestionAdapter.notifyDataSetChanged();
+
+        if (matches.isEmpty()) {
+            searchPredictionsList.setVisibility(View.GONE);
+        } else {
+            searchPredictionsList.setVisibility(View.VISIBLE);
+            searchPredictionsList.bringToFront();
+        }
+    }
+
+    private List<SearchSuggestion> filterSuggestions(String rawQuery) {
+        List<SearchSuggestion> results = new ArrayList<>();
+        if (rawQuery == null) {
+            return results;
+        }
+        String trimmed = rawQuery.trim();
+        String q = trimmed.toLowerCase(Locale.US);
         if (q.isEmpty()) {
-            return;
+            return results;
         }
+
+        // Always offer a worldwide lookup so any typed place can be opened.
+        results.add(SearchSuggestion.worldSearch(trimmed));
 
         for (CampusPlace place : campusPlaces) {
             if (place.name.toLowerCase(Locale.US).contains(q)
                     || place.category.toLowerCase(Locale.US).contains(q)) {
-                map.animateCamera(CameraUpdateFactory.newLatLngZoom(place.position, 17f));
-                selectedReportId = null;
-                selectedDestination = place.position;
-                showPlaceSheet(place.name, place.category + " · nearby", place.position,
-                        photoForPlaceName(place.name));
-                return;
+                results.add(SearchSuggestion.place(place));
             }
         }
 
         List<AccessibilityReport> reports =
                 ObstacleReportStore.getInstance(this).getActiveCommunityReports();
         for (AccessibilityReport report : reports) {
-            if (report.getLocationName().toLowerCase(Locale.US).contains(q)
-                    || report.getIssueType().toLowerCase(Locale.US).contains(q)) {
-                selectedReportId = report.getId();
-                selectedDestination = CAMPUS_CENTER;
-                showPlaceSheet(
-                        report.getIssueType(),
-                        report.getLocationName() + " · " + report.getStatus()
-                                + " · " + ReportTimeFormat.postedBanner(report.getTimestamp()),
-                        CAMPUS_CENTER,
-                        photoForReport(report)
-                );
-                map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16.5f));
-                return;
+            String location = report.getLocationName() != null ? report.getLocationName() : "";
+            String issue = report.getIssueType() != null ? report.getIssueType() : "";
+            if (location.toLowerCase(Locale.US).contains(q)
+                    || issue.toLowerCase(Locale.US).contains(q)) {
+                results.add(SearchSuggestion.report(report));
             }
         }
 
-        Toast.makeText(this, "No matching place found", Toast.LENGTH_SHORT).show();
+        if (results.size() > 12) {
+            return new ArrayList<>(results.subList(0, 12));
+        }
+        return results;
+    }
+
+    private void commitSearch(String query) {
+        String originalQuery = query != null ? query.trim() : "";
+        if (originalQuery.isEmpty()) {
+            hideSearchSuggestions();
+            return;
+        }
+        // Prefer exact campus / report match if the user typed one, otherwise go worldwide.
+        List<SearchSuggestion> matches = filterSuggestions(originalQuery);
+        for (SearchSuggestion suggestion : matches) {
+            if (!suggestion.worldSearch
+                    && suggestion.title.toLowerCase(Locale.US)
+                    .equals(originalQuery.toLowerCase(Locale.US))) {
+                selectSearchSuggestion(suggestion);
+                return;
+            }
+        }
+        goToWorldLocation(originalQuery);
+    }
+
+    private void goToWorldLocation(String query) {
+        Toast.makeText(this, "Searching for \"" + query + "\"…", Toast.LENGTH_SHORT).show();
+        geocodeAddress(query, new GeocodeCallback() {
+            @Override
+            public void onGeocoded(double lat, double lng) {
+                if (map == null) {
+                    return;
+                }
+                LatLng latLng = new LatLng(lat, lng);
+                hideSearchSuggestions();
+                hideKeyboard();
+                selectedReportId = null;
+                selectedLat = lat;
+                selectedLng = lng;
+                selectedDestination = latLng;
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f));
+                if (selectedLocationMarker != null) {
+                    selectedLocationMarker.remove();
+                }
+                selectedLocationMarker = map.addMarker(new MarkerOptions()
+                        .position(latLng)
+                        .title(query)
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+                showPlaceSheet(query, "Searched location", latLng, photoForPlaceName(query));
+            }
+
+            @Override
+            public void onError(String message) {
+                hideSearchSuggestions();
+                Toast.makeText(MapActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void selectSearchSuggestion(SearchSuggestion suggestion) {
+        if (suggestion == null) {
+            return;
+        }
+        if (suggestion.worldSearch) {
+            goToWorldLocation(suggestion.title);
+            return;
+        }
+        if (map == null) {
+            return;
+        }
+        hideSearchSuggestions();
+        hideKeyboard();
+        searchInput.setText(suggestion.title);
+        searchInput.clearFocus();
+
+        selectedReportId = suggestion.reportId;
+        selectedLat = suggestion.position.latitude;
+        selectedLng = suggestion.position.longitude;
+        selectedDestination = suggestion.position;
+
+        if (selectedLocationMarker != null) {
+            selectedLocationMarker.remove();
+            selectedLocationMarker = null;
+        }
+
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(suggestion.position, 17f));
+        showPlaceSheet(
+                suggestion.title,
+                suggestion.subtitle,
+                suggestion.position,
+                suggestion.photoRes
+        );
+    }
+
+    private void hideSearchSuggestions() {
+        if (searchPredictionsList != null) {
+            searchPredictionsList.setVisibility(View.GONE);
+        }
+        searchSuggestions.clear();
+        if (searchSuggestionAdapter != null) {
+            searchSuggestionAdapter.notifyDataSetChanged();
+        }
+    }
+
+    private void hideKeyboard() {
+        View focus = getCurrentFocus();
+        if (focus == null) {
+            focus = searchInput;
+        }
+        if (focus != null) {
+            InputMethodManager imm =
+                    (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
+            }
+        }
     }
 
     private void showSheet(String title, String subtitle) {
@@ -481,11 +746,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         int walkMinutes = estimateWalkMinutes(destination);
         int driveMinutes = Math.max(1, walkMinutes / 4);
-        String walkLabel = formatDurationMinutes(walkMinutes);
+        String walkLabel = GeoUtils.formatDurationMinutes(walkMinutes);
 
         sheetEtaText.setText(walkLabel);
         modeWalkChip.setText("Walk · " + walkLabel);
-        modeDriveChip.setText("Drive · " + formatDurationMinutes(driveMinutes));
+        modeDriveChip.setText("Drive · " + GeoUtils.formatDurationMinutes(driveMinutes));
 
         long arriveAt = System.currentTimeMillis() + walkMinutes * 60_000L;
         java.text.SimpleDateFormat timeFmt =
@@ -493,7 +758,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         sheetArriveText.setText("Arrive " + timeFmt.format(new java.util.Date(arriveAt)));
 
         LatLng originForMeta = navigationOriginOrCampus();
-        double km = distanceMeters(originForMeta, destination) / 1000.0;
+        double km = GeoUtils.distanceMeters(originForMeta, destination) / 1000.0;
         if (km < 0.05) {
             sheetRouteMeta.setText("Nearby · explore the area");
         } else {
@@ -502,6 +767,36 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
 
         locationSheet.setVisibility(View.VISIBLE);
+        updateMapControlsPosition();
+    }
+
+    /** Keep +/- and my-location FABs sitting just above the white bottom sheet. */
+    private void updateMapControlsPosition() {
+        if (mapControls == null) {
+            return;
+        }
+        mapControls.post(() -> {
+            int sheetHeight = 0;
+            if (locationSheet.getVisibility() == View.VISIBLE) {
+                sheetHeight = locationSheet.getHeight();
+                if (sheetHeight <= 0) {
+                    locationSheet.measure(
+                            View.MeasureSpec.makeMeasureSpec(locationSheet.getWidth() > 0
+                                            ? locationSheet.getWidth()
+                                            : getResources().getDisplayMetrics().widthPixels,
+                                    View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    );
+                    sheetHeight = locationSheet.getMeasuredHeight();
+                }
+            }
+            float density = getResources().getDisplayMetrics().density;
+            int marginBottom = Math.round(16 * density) + sheetHeight;
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) mapControls.getLayoutParams();
+            params.bottomMargin = marginBottom;
+            mapControls.setLayoutParams(params);
+            mapControls.bringToFront();
+        });
     }
 
     private int photoForPlaceName(String name) {
@@ -529,9 +824,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private int estimateWalkMinutes(LatLng destination) {
-        double meters = distanceMeters(navigationOriginOrCampus(), destination);
-        int minutes = (int) Math.round((meters / 1000.0) / 4.5 * 60.0);
-        return Math.max(1, minutes);
+        return GeoUtils.walkMinutesForMeters(
+                GeoUtils.distanceMeters(navigationOriginOrCampus(), destination));
     }
 
     /**
@@ -541,36 +835,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private LatLng navigationOriginOrCampus() {
         if (routeOriginLocation != null) {
             LatLng gps = new LatLng(routeOriginLocation[0], routeOriginLocation[1]);
-            if (distanceMeters(gps, CAMPUS_CENTER) <= 25_000) {
+            if (GeoUtils.distanceMeters(gps, CAMPUS_CENTER) <= 25_000) {
                 return gps;
             }
         }
         return CAMPUS_CENTER;
     }
 
-    /** Formats minutes as "24 min", "1 hr 5 min", or "3 hr". */
-    private static String formatDurationMinutes(int totalMinutes) {
-        int minutes = Math.max(0, totalMinutes);
-        if (minutes < 60) {
-            return minutes + " min";
-        }
-        int hours = minutes / 60;
-        int rem = minutes % 60;
-        if (rem == 0) {
-            return hours + (hours == 1 ? " hr" : " hrs");
-        }
-        return hours + (hours == 1 ? " hr " : " hrs ") + rem + " min";
-    }
 
-    private static double distanceMeters(LatLng a, LatLng b) {
-        double earth = 6371000;
-        double dLat = Math.toRadians(b.latitude - a.latitude);
-        double dLng = Math.toRadians(b.longitude - a.longitude);
-        double x = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(a.latitude)) * Math.cos(Math.toRadians(b.latitude))
-                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        return earth * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-    }
 
     private void enableMyLocationIfPermitted() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -608,6 +880,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(me, 17f));
                         showPlaceSheet("Your location", "Centered on your current position", me,
                                 R.drawable.sample_report_corridor);
+                        selectedLat = me.latitude;
+                        selectedLng = me.longitude;
+                        showSheet("Your location", "Centered on your current position");
                     } else if (map != null) {
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
                         showPlaceSheet("Map center", "Showing your area", CAMPUS_CENTER,
@@ -619,6 +894,25 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(CAMPUS_CENTER, 16f));
                     }
                 });
+    }
+
+    private void centerCameraOnUserLocationOrCampus() {
+        if (map == null) {
+            return;
+        }
+        // Prefer campus when GPS is far away (common on emulators).
+        LatLng target = navigationOriginOrCampus();
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(target, 16f));
+        selectedLat = target.latitude;
+        selectedLng = target.longitude;
+        selectedDestination = target;
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            pendingInitialCameraMove = true;
+        }
     }
 
     @Override
@@ -638,11 +932,13 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     == PackageManager.PERMISSION_GRANTED) {
                 map.setMyLocationEnabled(true);
             }
-            // If the user tapped "use my location" for the route origin before
-            // permission was granted, fetch it now that we have access.
             if (pendingRouteOriginFetch) {
                 pendingRouteOriginFetch = false;
                 fetchRouteOriginLocation();
+            }
+            if (pendingInitialCameraMove) {
+                pendingInitialCameraMove = false;
+                centerOnUserOrCampus();
             }
         }
     }
@@ -659,15 +955,103 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
     }
 
+    private static final class SearchSuggestion {
+        final String title;
+        final String subtitle;
+        final LatLng position;
+        final String reportId;
+        final int photoRes;
+        final boolean worldSearch;
+
+        private SearchSuggestion(
+                String title,
+                String subtitle,
+                LatLng position,
+                String reportId,
+                int photoRes,
+                boolean worldSearch
+        ) {
+            this.title = title;
+            this.subtitle = subtitle;
+            this.position = position;
+            this.reportId = reportId;
+            this.photoRes = photoRes;
+            this.worldSearch = worldSearch;
+        }
+
+        static SearchSuggestion worldSearch(String query) {
+            return new SearchSuggestion(
+                    query,
+                    "Search anywhere on the map",
+                    null,
+                    null,
+                    R.drawable.campus_pathway_demo,
+                    true
+            );
+        }
+
+        static SearchSuggestion place(CampusPlace place) {
+            return new SearchSuggestion(
+                    place.name,
+                    place.category + " · campus place",
+                    place.position,
+                    null,
+                    R.drawable.campus_pathway_demo,
+                    false
+            );
+        }
+
+        static SearchSuggestion report(AccessibilityReport report) {
+            LatLng pos = (report.getLat() != 0 || report.getLng() != 0)
+                    ? new LatLng(report.getLat(), report.getLng())
+                    : CAMPUS_CENTER;
+            return new SearchSuggestion(
+                    report.getIssueType(),
+                    report.getLocationName() + " · " + report.getStatus(),
+                    pos,
+                    report.getId(),
+                    R.drawable.sample_report_corridor,
+                    false
+            );
+        }
+    }
+
+    private final class SearchSuggestionAdapter extends BaseAdapter {
+        @Override
+        public int getCount() {
+            return searchSuggestions.size();
+        }
+
+        @Override
+        public SearchSuggestion getItem(int position) {
+            return searchSuggestions.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View row = convertView;
+            if (row == null) {
+                row = LayoutInflater.from(MapActivity.this)
+                        .inflate(R.layout.item_search_suggestion, parent, false);
+            }
+            SearchSuggestion item = getItem(position);
+            TextView title = row.findViewById(R.id.suggestionTitle);
+            TextView subtitle = row.findViewById(R.id.suggestionSubtitle);
+            title.setText(item.title);
+            subtitle.setText(item.subtitle);
+            return row;
+        }
+    }
+
     // ================== Route-finding additions ==================
 
-    /**
-     * Swaps the top search bar for the two-field route panel, called when
-     * "Directions" is tapped in the bottom sheet. Prefills the destination
-     * with whatever place/report is currently shown in the sheet, and tries
-     * to auto-fill the origin from GPS if permission is already granted.
-     */
     private void showRoutePanel() {
+        hideSearchSuggestions();
         String prefillDestination = sheetTitle.getText() != null ? sheetTitle.getText().toString() : "";
         if (!TextUtils.isEmpty(prefillDestination)) {
             destinationInput.setText(prefillDestination);
@@ -685,7 +1069,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     private void hideSheet() {
         locationSheet.setVisibility(View.GONE);
+        updateMapControlsPosition();
     }
+
     private void showSearchPanel() {
         routePanel.setVisibility(View.GONE);
         searchPanel.setVisibility(View.VISIBLE);
@@ -701,20 +1087,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
     }
 
-    private void checkLocationPermissionAndFetchOrigin() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            pendingRouteOriginFetch = true;
-            ActivityCompat.requestPermissions(this,
-                    new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                    },
-                    REQUEST_LOCATION);
-            return;
-        }
-        fetchRouteOriginLocation();
-    }
 
     private void fetchRouteOriginLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -732,38 +1104,27 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void onFindRouteClicked() {
-        String destinationText = destinationInput.getText().toString().trim();
+        String originText = currentLocationInput.getText() != null
+                ? currentLocationInput.getText().toString().trim() : "";
+        String destinationText = destinationInput.getText() != null
+                ? destinationInput.getText().toString().trim() : "";
+
         if (TextUtils.isEmpty(destinationText)) {
             Toast.makeText(this, "Please enter a destination", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        if (routeOriginLocation != null) {
-            geocodeAddress(destinationText, new GeocodeCallback() {
-                @Override
-                public void onGeocoded(double destLat, double destLng) {
-                    LatLng origin = navigationOriginOrCampus();
-                    planRoute(origin.latitude, origin.longitude, destLat, destLng);
-                }
-
-                @Override
-                public void onError(String message) {
-                    Toast.makeText(MapActivity.this, message, Toast.LENGTH_SHORT).show();
-                }
-            });
-            return;
+        if (TextUtils.isEmpty(originText) && routeOriginLocation == null) {
+            // Default to campus / GPS so the user can still find a route
+            originText = "Current Location";
+            currentLocationInput.setText(originText);
         }
 
-        String originText = currentLocationInput.getText().toString().trim();
-        if (TextUtils.isEmpty(originText)) {
-            Toast.makeText(this, "Enter a starting location or tap the location icon", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        Toast.makeText(this, "Finding accessible route…", Toast.LENGTH_SHORT).show();
 
-        geocodeAddress(originText, new GeocodeCallback() {
+        resolveLocationName(originText, true, new GeocodeCallback() {
             @Override
             public void onGeocoded(double originLat, double originLng) {
-                geocodeAddress(destinationText, new GeocodeCallback() {
+                resolveLocationName(destinationText, false, new GeocodeCallback() {
                     @Override
                     public void onGeocoded(double destLat, double destLng) {
                         planRoute(originLat, originLng, destLat, destLng);
@@ -771,86 +1132,229 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
                     @Override
                     public void onError(String message) {
-                        Toast.makeText(MapActivity.this, message, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MapActivity.this, message, Toast.LENGTH_LONG).show();
                     }
                 });
             }
 
             @Override
             public void onError(String message) {
-                Toast.makeText(MapActivity.this, message, Toast.LENGTH_SHORT).show();
+                Toast.makeText(MapActivity.this, message, Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    /**
+     * Resolves a typed place name to coordinates:
+     * 1) Current Location / GPS / campus
+     * 2) Known campus places & community reports
+     * 3) Currently selected map destination (if the text matches the sheet)
+     * 4) Android Geocoder as last resort
+     */
+    private void resolveLocationName(String rawName, boolean isOrigin, GeocodeCallback callback) {
+        String name = rawName != null ? rawName.trim() : "";
+        if (name.isEmpty()) {
+            callback.onError(isOrigin ? "Enter a starting location" : "Enter a destination");
+            return;
+        }
+
+        String lower = name.toLowerCase(Locale.US);
+        if (isOrigin && (lower.equals("current location")
+                || lower.equals("my location")
+                || lower.equals("current")
+                || lower.equals("me"))) {
+            LatLng origin = navigationOriginOrCampus();
+            callback.onGeocoded(origin.latitude, origin.longitude);
+            return;
+        }
+
+        // Exact / partial match against campus catalog
+        CampusPlace bestPlace = null;
+        int bestScore = Integer.MAX_VALUE;
+        for (CampusPlace place : campusPlaces) {
+            String placeLower = place.name.toLowerCase(Locale.US);
+            if (placeLower.equals(lower)) {
+                callback.onGeocoded(place.position.latitude, place.position.longitude);
+                return;
+            }
+            if (placeLower.contains(lower) || lower.contains(placeLower)) {
+                int score = Math.abs(placeLower.length() - lower.length());
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestPlace = place;
+                }
+            } else if (place.category.toLowerCase(Locale.US).contains(lower)) {
+                if (bestPlace == null) {
+                    bestPlace = place;
+                }
+            }
+        }
+        if (bestPlace != null) {
+            callback.onGeocoded(bestPlace.position.latitude, bestPlace.position.longitude);
+            return;
+        }
+
+        // Community reports by location / issue name
+        List<AccessibilityReport> reports =
+                ObstacleReportStore.getInstance(this).getActiveCommunityReports();
+        for (AccessibilityReport report : reports) {
+            String location = report.getLocationName() != null ? report.getLocationName() : "";
+            String issue = report.getIssueType() != null ? report.getIssueType() : "";
+            if (location.toLowerCase(Locale.US).contains(lower)
+                    || issue.toLowerCase(Locale.US).contains(lower)
+                    || lower.contains(location.toLowerCase(Locale.US))) {
+                double lat = report.getLat();
+                double lng = report.getLng();
+                if (lat == 0 && lng == 0) {
+                    lat = CAMPUS_CENTER.latitude;
+                    lng = CAMPUS_CENTER.longitude;
+                }
+                callback.onGeocoded(lat, lng);
+                return;
+            }
+        }
+
+        // If the destination field still shows the bottom-sheet title, use that pin
+        if (!isOrigin && selectedDestination != null) {
+            String sheet = sheetTitle.getText() != null ? sheetTitle.getText().toString().trim() : "";
+            if (!sheet.isEmpty() && (sheet.equalsIgnoreCase(name)
+                    || lower.equals("nearby places")
+                    || lower.equals("selected location")
+                    || lower.equals("route found"))) {
+                callback.onGeocoded(selectedDestination.latitude, selectedDestination.longitude);
+                return;
+            }
+        }
+
+        // Last resort: system geocoder (works for real-world addresses)
+        geocodeAddress(name, callback);
     }
 
     private void geocodeAddress(String address, GeocodeCallback callback) {
         geocodeExecutor.execute(() -> {
             try {
-                Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-                List<Address> results = geocoder.getFromLocationName(address, 1);
-                if (results != null && !results.isEmpty()) {
-                    Address result = results.get(0);
-                    runOnUiThread(() -> callback.onGeocoded(result.getLatitude(), result.getLongitude()));
-                } else {
-                    runOnUiThread(() -> callback.onError("Could not find location: " + address));
+                double[] coords = geocodeWithGoogleApi(address);
+                if (coords == null && Geocoder.isPresent()) {
+                    Geocoder geocoder = new Geocoder(MapActivity.this, Locale.getDefault());
+                    // Unrestricted worldwide lookup — no region bias.
+                    List<Address> results = geocoder.getFromLocationName(address, 1);
+                    if (results != null && !results.isEmpty()) {
+                        coords = new double[]{
+                                results.get(0).getLatitude(),
+                                results.get(0).getLongitude()
+                        };
+                    }
                 }
-            } catch (IOException e) {
-                runOnUiThread(() -> callback.onError("Geocoding failed. Check your internet connection."));
+                if (coords != null) {
+                    double lat = coords[0];
+                    double lng = coords[1];
+                    runOnUiThread(() -> callback.onGeocoded(lat, lng));
+                } else {
+                    runOnUiThread(() -> callback.onError(
+                            "Could not find \"" + address + "\". Check the spelling or try another place."));
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> callback.onError(
+                        "Looking up \"" + address + "\" failed. Check your internet connection."));
             }
         });
     }
 
-    private void planRoute(double originLat, double originLng, double destLat, double destLng) {
-        Toast.makeText(this, "Finding accessible route...", Toast.LENGTH_SHORT).show();
+    /** Worldwide Geocoding API lookup (no area restriction). */
+    private double[] geocodeWithGoogleApi(String address) {
+        String apiKey = getGoogleMapsApiKey();
+        if (apiKey == null || apiKey.isEmpty() || address == null || address.trim().isEmpty()) {
+            return null;
+        }
+        HttpURLConnection conn = null;
+        try {
+            String urlStr = "https://maps.googleapis.com/maps/api/geocode/json"
+                    + "?address=" + URLEncoder.encode(address.trim(), "UTF-8")
+                    + "&key=" + apiKey;
+            URL url = new URL(urlStr);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
 
+            int code = conn.getResponseCode();
+            java.io.InputStream stream = (code >= 200 && code < 300)
+                    ? conn.getInputStream()
+                    : conn.getErrorStream();
+            if (stream == null) {
+                return null;
+            }
+
+            StringBuilder body = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    body.append(line);
+                }
+            }
+
+            JSONObject root = new JSONObject(body.toString());
+            if (!"OK".equals(root.optString("status"))) {
+                return null;
+            }
+            JSONArray results = root.optJSONArray("results");
+            if (results == null || results.length() == 0) {
+                return null;
+            }
+            JSONObject location = results.getJSONObject(0)
+                    .getJSONObject("geometry")
+                    .getJSONObject("location");
+            return new double[]{location.getDouble("lat"), location.getDouble("lng")};
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
+
+    /**
+     * Scores candidate routes using live community reports, then draws the
+     * best one. If Directions API is unavailable, falls back to a local path
+     * so the demo still works.
+     */
+    private void planRoute(double originLat, double originLng, double destLat, double destLng) {
         directionsApiClient.fetchWalkingRoutes(originLat, originLng, destLat, destLng,
                 new DirectionsApiClient.RoutesCallback() {
                     @Override
                     public void onSuccess(List<RouteOption> routes) {
-                        double[] bounds = computeBounds(routes, originLat, originLng, destLat, destLng);
-
-                        repository.getObstaclesInBounds(bounds[0], bounds[1], bounds[2], bounds[3],
-                                new FirestoreAccessibilityRepository.ObstaclesCallback() {
-                                    @Override
-                                    public void onSuccess(List<Obstacle> obstacles) {
-                                        List<RouteOption> ranked = analyzer.analyze(routes, obstacles);
-                                        displayRoute(ranked.get(0), originLat, originLng, destLat, destLng);
-                                    }
-
-                                    @Override
-                                    public void onError(Exception e) {
-                                        displayRoute(routes.get(0), originLat, originLng, destLat, destLng);
-                                    }
-                                });
+                        if (routes == null || routes.isEmpty()) {
+                            displayRoute(
+                                    buildFallbackRoute(originLat, originLng, destLat, destLng, "Destination"),
+                                    originLat, originLng, destLat, destLng
+                            );
+                            showSearchPanel();
+                            return;
+                        }
+                        List<AccessibilityReport> reports =
+                                ObstacleReportStore.getInstance(MapActivity.this).getActiveCommunityReports();
+                        List<RouteOption> ranked = analyzer.analyze(routes, reports);
+                        displayRoute(ranked.get(0), originLat, originLng, destLat, destLng);
+                        showSearchPanel();
                     }
 
                     @Override
                     public void onError(Exception e) {
+                        // Directions API often blocked on demo keys — still show a usable path.
+                        RouteOption fallback = buildFallbackRoute(
+                                originLat, originLng, destLat, destLng, "Destination");
+                        List<AccessibilityReport> reports =
+                                ObstacleReportStore.getInstance(MapActivity.this).getActiveCommunityReports();
+                        analyzer.analyze(java.util.Collections.singletonList(fallback), reports);
+                        displayRoute(fallback, originLat, originLng, destLat, destLng);
+                        showSearchPanel();
                         Toast.makeText(MapActivity.this,
-                                "Could not find a route: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                "Showing local route (live Directions unavailable)",
+                                Toast.LENGTH_SHORT).show();
                     }
                 });
-    }
-
-    private double[] computeBounds(List<RouteOption> routes,
-                                   double originLat, double originLng,
-                                   double destLat, double destLng) {
-        double minLat = Math.min(originLat, destLat);
-        double maxLat = Math.max(originLat, destLat);
-        double minLng = Math.min(originLng, destLng);
-        double maxLng = Math.max(originLng, destLng);
-
-        for (RouteOption route : routes) {
-            for (double[] point : route.getPoints()) {
-                minLat = Math.min(minLat, point[0]);
-                maxLat = Math.max(maxLat, point[0]);
-                minLng = Math.min(minLng, point[1]);
-                maxLng = Math.max(maxLng, point[1]);
-            }
-        }
-
-        double margin = 0.01;
-        return new double[]{minLat - margin, maxLat + margin, minLng - margin, maxLng + margin};
     }
 
     /**
@@ -865,9 +1369,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         if (map == null) {
             return;
         }
-        map.clear();
-        markerReportIds.clear();
 
+        // Clear only the PREVIOUS route's polyline/pins — leave campus
+        // places and all obstacle pins exactly as they are.
+        if (currentRoutePolyline != null) {
+            currentRoutePolyline.remove();
+        }
+        if (currentRouteOriginMarker != null) {
+            currentRouteOriginMarker.remove();
+        }
+        if (currentRouteDestinationMarker != null) {
+            currentRouteDestinationMarker.remove();
+        }
         PolylineOptions polylineOptions = new PolylineOptions()
                 .color(Color.parseColor("#2A6DF4"))
                 .width(12f);
@@ -878,30 +1391,31 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             polylineOptions.add(latLng);
             boundsBuilder.include(latLng);
         }
-        map.addPolyline(polylineOptions);
+        currentRoutePolyline = map.addPolyline(polylineOptions);
 
-        map.addMarker(new MarkerOptions()
+        currentRouteOriginMarker = map.addMarker(new MarkerOptions()
                 .position(new LatLng(originLat, originLng))
                 .title("Start"));
 
-        map.addMarker(new MarkerOptions()
+        currentRouteDestinationMarker = map.addMarker(new MarkerOptions()
                 .position(new LatLng(destLat, destLng))
                 .title("Destination")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-        for (Obstacle obstacle : route.getObstaclesOnRoute()) {
-            map.addMarker(new MarkerOptions()
-                    .position(new LatLng(obstacle.getLat(), obstacle.getLng()))
-                    .title(obstacle.getType())
-                    .snippet(obstacle.getSeverity())
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
-        }
+        // Obstacles already have pins from showCampusAndObstacles() — no
+        // need to re-add markers for the ones matched on this route, they're
+        // already visible on the map.
 
         map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120));
 
         selectedReportId = null;
+        selectedLat = destLat;
+        selectedLng = destLng;
+        String verdict = route.getAccessibilityScore() >= 60
+                ? "Likely accessible (score: " + route.getAccessibilityScore() + "/100)"
+                : "May be difficult for wheelchair users (score: " + route.getAccessibilityScore() + "/100)";
         selectedDestination = new LatLng(destLat, destLng);
-        beginNavigation(route, originLat, originLng, destLat, destLng);
+        showPlaceSheet("Route found", verdict, selectedDestination, photoForPlaceName("Route found"));
     }
 
     /**
@@ -984,11 +1498,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     originLng + (destLng - originLng) * t
             });
         }
-        double meters = distanceMeters(
+        double meters = GeoUtils.distanceMeters(
                 new LatLng(originLat, originLng),
                 new LatLng(destLat, destLng)
         );
-        int seconds = Math.max(60, (int) Math.round((meters / 1000.0) / 4.5 * 3600.0));
+        int seconds = GeoUtils.walkSecondsForMeters(meters);
         List<RouteOption.Step> steps = new ArrayList<>();
         steps.add(new RouteOption.Step(
                 "Head toward " + destName,
@@ -1046,7 +1560,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         locationSheet.setVisibility(View.GONE);
         searchPanel.setVisibility(View.GONE);
         routePanel.setVisibility(View.GONE);
-        myLocationButton.setVisibility(View.GONE);
+        if (mapControls != null) {
+            mapControls.setVisibility(View.GONE);
+        }
         navigationOverlay.setVisibility(View.VISIBLE);
 
         map.clear();
@@ -1065,11 +1581,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 .title("Destination")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-        for (Obstacle obstacle : journeyObstacles) {
+        for (AccessibilityReport obstacle : journeyObstacles) {
             map.addMarker(new MarkerOptions()
                     .position(new LatLng(obstacle.getLat(), obstacle.getLng()))
-                    .title(obstacle.getType())
-                    .snippet("Reported obstacle")
+                    .title(obstacle.getIssueType())
+                    .snippet(obstacle.getLocationName())
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
         }
 
@@ -1095,67 +1611,93 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         List<AccessibilityReport> reports =
                 ObstacleReportStore.getInstance(this).getActiveCommunityReports();
-        int index = 0;
+        int fallbackIndex = 0;
         for (AccessibilityReport report : reports) {
-            LatLng pos = positionForCommunityReport(index);
-            journeyObstacles.add(new Obstacle(
-                    report.getId(),
-                    pos.latitude,
-                    pos.longitude,
-                    report.getIssueType(),
-                    Obstacle.SEVERITY_BLOCKER,
-                    "community",
-                    report.getTimestamp(),
-                    true
-            ));
-            index++;
-        }
-
-        // Ensure at least one obstacle sits on the path so the demo alert fires mid-journey
-        boolean anyOnRoute = false;
-        for (Obstacle o : journeyObstacles) {
-            if (isObstacleNearPath(o.getLat(), o.getLng(), navigationPath, OBSTACLE_ON_ROUTE_METERS)) {
-                anyOnRoute = true;
-                break;
+            if (!report.isObstacle()) {
+                continue;
             }
-        }
-        if (!anyOnRoute && navigationPath.size() > 4) {
-            int mid = Math.max(2, (int) (navigationPath.size() * 0.45));
-            LatLng midPoint = navigationPath.get(mid);
-            journeyObstacles.add(new Obstacle(
-                    "demo-path-obstacle",
-                    midPoint.latitude,
-                    midPoint.longitude,
-                    "Blocked pathway",
-                    Obstacle.SEVERITY_BLOCKER,
-                    "demo",
-                    System.currentTimeMillis(),
-                    true
-            ));
+            AccessibilityReport positioned = reportWithMapPosition(report, fallbackIndex);
+            if (report.getLat() == 0 && report.getLng() == 0) {
+                fallbackIndex++;
+            }
+            journeyObstacles.add(positioned);
         }
 
         if (route != null) {
-            for (Obstacle o : route.getObstaclesOnRoute()) {
+            for (AccessibilityReport report : route.getReportsOnRoute()) {
+                if (!report.isObstacle()) {
+                    continue;
+                }
                 boolean already = false;
-                for (Obstacle existing : journeyObstacles) {
-                    if (existing.getId() != null && existing.getId().equals(o.getId())) {
+                for (AccessibilityReport existing : journeyObstacles) {
+                    if (existing.getId() != null && existing.getId().equals(report.getId())) {
                         already = true;
                         break;
                     }
                 }
                 if (!already) {
-                    journeyObstacles.add(o);
+                    journeyObstacles.add(report);
                 }
             }
         }
+
+        // Ensure at least one obstacle sits on the path so the demo alert fires mid-journey.
+        boolean anyOnRoute = false;
+        for (AccessibilityReport report : journeyObstacles) {
+            if (GeoUtils.isNearPath(
+                    report.getLat(), report.getLng(), navigationPath, GeoUtils.ON_ROUTE_RADIUS_METERS)) {
+                anyOnRoute = true;
+                break;
+            }
+        }
+        if (!anyOnRoute && navigationPath.size() > 4
+                && !dismissedObstacleAlerts.contains("demo-path-obstacle")) {
+            int mid = Math.max(2, (int) (navigationPath.size() * 0.45));
+            LatLng midPoint = navigationPath.get(mid);
+            long now = System.currentTimeMillis();
+            journeyObstacles.add(new AccessibilityReport(
+                    "demo-path-obstacle",
+                    "Pathway",
+                    midPoint.latitude,
+                    midPoint.longitude,
+                    "Blocked pathway",
+                    AccessibilityReport.CATEGORY_OBSTACLE,
+                    "Temporary blockage on the walking path",
+                    now,
+                    0L,
+                    null,
+                    0,
+                    0,
+                    AccessibilityReport.STATUS_ACTIVE,
+                    false,
+                    null
+            ));
+        }
     }
 
-    private LatLng positionForCommunityReport(int index) {
-        double latOffset = ((index % 3) - 1) * 0.0009;
-        double lngOffset = ((index / 3) % 3 - 1) * 0.0009;
-        return new LatLng(
+    /** Prefer real report coordinates; scatter only for legacy reports missing lat/lng. */
+    private AccessibilityReport reportWithMapPosition(AccessibilityReport report, int fallbackIndex) {
+        if (report.getLat() != 0 || report.getLng() != 0) {
+            return report;
+        }
+        double latOffset = ((fallbackIndex % 3) - 1) * 0.0009;
+        double lngOffset = ((fallbackIndex / 3) % 3 - 1) * 0.0009;
+        return new AccessibilityReport(
+                report.getId(),
+                report.getLocationName(),
                 CAMPUS_CENTER.latitude + latOffset,
-                CAMPUS_CENTER.longitude + lngOffset
+                CAMPUS_CENTER.longitude + lngOffset,
+                report.getIssueType(),
+                report.getCategory(),
+                report.getDescription(),
+                report.getTimestamp(),
+                report.getLastVerifiedAt(),
+                report.getPhotoPath(),
+                report.getStillThereCount(),
+                report.getNotThereCount(),
+                report.getStatus(),
+                report.isSubmittedByMe(),
+                report.getReporterId()
         );
     }
 
@@ -1188,7 +1730,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             int nextStep = Math.min(navigationStepIndex + 1, activeRoute.getSteps().size() - 1);
             if (nextStep > navigationStepIndex) {
                 RouteOption.Step upcoming = activeRoute.getSteps().get(nextStep);
-                double d = distanceMeters(current, new LatLng(upcoming.startLat, upcoming.startLng));
+                double d = GeoUtils.distanceMeters(current, new LatLng(upcoming.startLat, upcoming.startLng));
                 if (d < 35 || navigationIndex > (navigationPath.size() * (nextStep + 1) / activeRoute.getSteps().size())) {
                     navigationStepIndex = nextStep;
                 }
@@ -1207,17 +1749,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
 
         LatLng current = navigationPath.get(navigationIndex);
-        Obstacle nearest = null;
+        AccessibilityReport nearest = null;
         double nearestDist = Double.MAX_VALUE;
 
-        for (Obstacle obstacle : journeyObstacles) {
+        for (AccessibilityReport obstacle : journeyObstacles) {
             if (obstacle.getId() != null && dismissedObstacleAlerts.contains(obstacle.getId())) {
                 continue;
             }
             if (!isObstacleOnRemainingPath(obstacle)) {
                 continue;
             }
-            double dist = distanceMeters(current, new LatLng(obstacle.getLat(), obstacle.getLng()));
+            double dist = GeoUtils.distanceMeters(
+                    current, new LatLng(obstacle.getLat(), obstacle.getLng()));
             if (dist <= OBSTACLE_ALERT_METERS && dist < nearestDist) {
                 nearest = obstacle;
                 nearestDist = dist;
@@ -1229,66 +1772,26 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
     }
 
-    private boolean isObstacleOnRemainingPath(Obstacle obstacle) {
+    private boolean isObstacleOnRemainingPath(AccessibilityReport obstacle) {
         if (navigationPath.isEmpty() || navigationIndex >= navigationPath.size() - 1) {
             return false;
         }
         List<LatLng> remaining = navigationPath.subList(navigationIndex, navigationPath.size());
-        return isObstacleNearPath(obstacle.getLat(), obstacle.getLng(), remaining, OBSTACLE_ON_ROUTE_METERS);
+        return GeoUtils.isNearPath(
+                obstacle.getLat(), obstacle.getLng(), remaining, GeoUtils.ON_ROUTE_RADIUS_METERS);
     }
 
-    private static boolean isObstacleNearPath(
-            double lat,
-            double lng,
-            List<LatLng> path,
-            double radiusMeters
-    ) {
-        if (path == null || path.size() < 2) {
-            if (path != null && path.size() == 1) {
-                return distanceMeters(path.get(0), new LatLng(lat, lng)) <= radiusMeters;
-            }
-            return false;
-        }
-        for (int i = 0; i < path.size() - 1; i++) {
-            LatLng a = path.get(i);
-            LatLng b = path.get(i + 1);
-            if (distanceToSegmentMeters(lat, lng, a.latitude, a.longitude, b.latitude, b.longitude)
-                    <= radiusMeters) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static double distanceToSegmentMeters(
-            double pLat, double pLng,
-            double aLat, double aLng,
-            double bLat, double bLng
-    ) {
-        double abLat = bLat - aLat;
-        double abLng = bLng - aLng;
-        double apLat = pLat - aLat;
-        double apLng = pLng - aLng;
-        double abLenSq = abLat * abLat + abLng * abLng;
-        double t = abLenSq == 0 ? 0 : (apLat * abLat + apLng * abLng) / abLenSq;
-        t = Math.max(0, Math.min(1, t));
-        double closestLat = aLat + t * abLat;
-        double closestLng = aLng + t * abLng;
-        return distanceMeters(new LatLng(pLat, pLng), new LatLng(closestLat, closestLng));
-    }
-
-    private void showObstacleAlert(Obstacle obstacle, int distanceMeters) {
+    private void showObstacleAlert(AccessibilityReport obstacle, int distanceMetersAhead) {
         pendingObstacleAlert = obstacle;
         obstaclePromptVisible = true;
         navigationHandler.removeCallbacks(navigationTick);
 
-        String type = obstacle.getType() != null ? obstacle.getType() : "Obstacle";
-        String prettyType = type.replace('_', ' ');
+        String type = obstacle.getIssueType() != null ? obstacle.getIssueType() : "Obstacle";
         obstacleAlertMessage.setText(String.format(Locale.US,
                 "%s is about %d m ahead on your route (~1 min). "
                         + "We found a safer path that avoids it. Switch routes?",
-                prettyType,
-                Math.max(1, distanceMeters)));
+                type,
+                Math.max(1, distanceMetersAhead)));
         obstacleAlertCard.setVisibility(View.VISIBLE);
 
         Toast.makeText(this, "Obstacle ahead — choose a route", Toast.LENGTH_SHORT).show();
@@ -1315,7 +1818,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void avoidDetectedObstacle() {
-        Obstacle obstacle = pendingObstacleAlert;
+        AccessibilityReport obstacle = pendingObstacleAlert;
         if (obstacle == null || navigationPath.isEmpty()) {
             hideObstacleAlert();
             return;
@@ -1335,7 +1838,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 obstacle.getLng(),
                 navDestLat,
                 navDestLng,
-                obstacle.getType()
+                obstacle.getIssueType()
         );
         beginNavigation(avoidRoute, current.latitude, current.longitude, navDestLat, navDestLng);
         Toast.makeText(this, "Switched to route that avoids the obstacle", Toast.LENGTH_LONG).show();
@@ -1378,12 +1881,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         double meters = 0;
         for (int i = 0; i < points.size() - 1; i++) {
-            meters += distanceMeters(
+            meters += GeoUtils.distanceMeters(
                     new LatLng(points.get(i)[0], points.get(i)[1]),
                     new LatLng(points.get(i + 1)[0], points.get(i + 1)[1])
             );
         }
-        int seconds = Math.max(60, (int) Math.round((meters / 1000.0) / 4.5 * 3600.0));
+        int seconds = GeoUtils.walkSecondsForMeters(meters);
         String label = obstacleLabel != null ? obstacleLabel.replace('_', ' ') : "obstacle";
 
         List<RouteOption.Step> steps = new ArrayList<>();
@@ -1441,7 +1944,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         if (!steps.isEmpty()) {
             RouteOption.Step step = steps.get(Math.min(navigationStepIndex, steps.size() - 1));
             navStepStreet.setText(shortStreetName(step.instruction));
-            navStepDistance.setText(formatMeters(remainingStepMeters(step)));
+            navStepDistance.setText(GeoUtils.formatMeters(remainingStepMeters(step)));
             navTurnIcon.setText(maneuverIcon(step.maneuver, step.instruction));
             if (navigationStepIndex + 1 < steps.size()) {
                 RouteOption.Step then = steps.get(navigationStepIndex + 1);
@@ -1454,7 +1957,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         } else {
             navStepStreet.setText(activeRoute.getSummary());
-            navStepDistance.setText(formatMeters(remainingPathMeters()));
+            navStepDistance.setText(GeoUtils.formatMeters(remainingPathMeters()));
             navTurnIcon.setText("↑");
             navThenText.setText("Then ✓ Arrive");
         }
@@ -1464,7 +1967,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         if (navigationIndex >= navigationPath.size() - 1) {
             remainMinutes = 0;
         }
-        navEtaText.setText(formatDurationMinutes(remainMinutes));
+        navEtaText.setText(GeoUtils.formatDurationMinutes(remainMinutes));
 
         long arriveAt = System.currentTimeMillis() + remainMinutes * 60_000L;
         java.text.SimpleDateFormat timeFmt =
@@ -1494,7 +1997,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
         double total = 0;
         for (int i = navigationIndex; i < navigationPath.size() - 1; i++) {
-            total += distanceMeters(navigationPath.get(i), navigationPath.get(i + 1));
+            total += GeoUtils.distanceMeters(navigationPath.get(i), navigationPath.get(i + 1));
         }
         return (int) Math.round(total);
     }
@@ -1508,12 +2011,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         return Math.max(10, Math.min(step.distanceMeters, remain));
     }
 
-    private static String formatMeters(int meters) {
-        if (meters >= 1000) {
-            return String.format(Locale.US, "%.1f km", meters / 1000.0);
-        }
-        return meters + " m";
-    }
 
     private static String shortStreetName(String instruction) {
         if (instruction == null || instruction.isEmpty()) {
@@ -1593,7 +2090,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         navigationPolyline = null;
 
         navigationOverlay.setVisibility(View.GONE);
-        myLocationButton.setVisibility(View.VISIBLE);
+        if (mapControls != null) {
+            mapControls.setVisibility(View.VISIBLE);
+        }
         showSearchPanel();
 
         if (map != null) {
@@ -1617,9 +2116,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     @Override
     protected void onDestroy() {
+        ObstacleReportStore.getInstance(this).removeListener(this);
         navigating = false;
         navigationHandler.removeCallbacks(navigationTick);
-        super.onDestroy();
         geocodeExecutor.shutdown();
+        super.onDestroy();
     }
 }

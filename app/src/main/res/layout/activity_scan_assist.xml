@@ -5,16 +5,14 @@
     android:layout_height="match_parent"
     android:background="#111111">
 
-    <!-- Pathway preview — drag for 360 look-around -->
     <ImageView
         android:id="@+id/campusPreviewImage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="matrix"
         android:src="@drawable/campus_360"
-        android:contentDescription="360 walkway. Drag to look around." />
+        android:contentDescription="@string/scan_assist_title" />
 
-    <!-- Top bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -46,7 +44,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="360° walkway"
+                android:text="@string/scan_assist_title"
                 android:textColor="#FFFFFF"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -56,12 +54,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Drag to look around · Turn left / right"
-                android:textColor="#D1D5DB"
+                android:textColor="#E5E7EB"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Guidance card -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -76,7 +73,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Look around in 360°"
-            android:textColor="#FFFFFF"
+            android:textColor="#111827"
             android:textSize="18sp"
             android:textStyle="bold"
             android:layout_marginBottom="6dp" />
@@ -86,8 +83,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/scan_assist_hint"
-            android:textColor="#CFCFCF"
-            android:textSize="14sp"
+            android:textColor="#0F172A"
+            android:textSize="15sp"
             android:lineSpacingExtra="3dp"
             android:layout_marginBottom="12dp"
             android:minHeight="64dp" />
@@ -96,9 +93,8 @@
             android:id="@+id/detectedLabels"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="#9CA3AF"
-            android:textSize="12sp"
+            android:textColor="#1E293B"
+            android:textSize="13sp"
             android:layout_marginBottom="10dp"
             android:visibility="gone" />
 
@@ -110,65 +106,65 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/turnLeftButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
+                android:layout_marginEnd="6dp"
                 android:layout_weight="1"
+                android:contentDescription="Turn left"
                 android:text="Turn left"
                 android:textAllCaps="false"
+                android:textColor="#111827"
                 android:textSize="14sp"
                 app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                app:strokeColor="#FFFFFF"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="6dp"
-                android:contentDescription="Turn left" />
+                app:strokeColor="#111827" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/turnRightButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
+                android:layout_marginStart="6dp"
                 android:layout_weight="1"
+                android:contentDescription="Turn right"
                 android:text="Turn right"
                 android:textAllCaps="false"
+                android:textColor="#111827"
                 android:textSize="14sp"
                 app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                app:strokeColor="#FFFFFF"
-                android:textColor="#FFFFFF"
-                android:layout_marginStart="6dp"
-                android:contentDescription="Turn right" />
+                app:strokeColor="#111827" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/scanButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:backgroundTint="#111111"
+            android:contentDescription="@string/scan_button"
             android:text="@string/scan_button"
             android:textAllCaps="false"
+            android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold"
             app:cornerRadius="16dp"
-            android:backgroundTint="#FFFFFF"
-            android:textColor="#1A1A1A"
             app:icon="@drawable/ic_camera"
-            app:iconTint="#1A1A1A"
             app:iconGravity="textStart"
-            android:contentDescription="Scan what you are facing" />
+            app:iconTint="#FFFFFF" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/repeatButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:contentDescription="Repeat audio"
             android:text="Repeat audio"
             android:textAllCaps="false"
+            android:textColor="#111827"
             android:textSize="14sp"
-            android:layout_marginTop="8dp"
-            app:cornerRadius="14dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            app:strokeColor="#FFFFFF"
-            android:textColor="#FFFFFF"
             android:visibility="gone"
-            android:contentDescription="Repeat audio" />
+            app:cornerRadius="14dp"
+            app:strokeColor="#111827" />
     </LinearLayout>
 
 </FrameLayout>
